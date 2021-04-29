@@ -1,18 +1,22 @@
 #pragma once
 
-struct PointLight
+struct PointLights
 {
-	glm::vec3 position;
-	glm::vec3 color;
-	float intensity;
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> colors;
+	std::vector<float> intensities;
+	int lightCount;
 };
 
 struct SceneManager
 {
-	std::vector<PointLight> pointlights;
+	PointLights pointlights;
 };
 
-static void AddPointLight(SceneManager* sceneManager, PointLight pointLight)
+static void AddPointLight(SceneManager* sceneManager, glm::vec3 lightPosition, glm::vec3 lightColor, float lightIntenisty)
 {
-	sceneManager->pointlights.push_back(pointLight);
+	sceneManager->pointlights.positions.push_back(lightPosition);
+	sceneManager->pointlights.colors.push_back(lightColor);
+	sceneManager->pointlights.intensities.push_back(lightIntenisty);
+	sceneManager->pointlights.lightCount++;
 }

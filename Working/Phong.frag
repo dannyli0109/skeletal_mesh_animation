@@ -17,7 +17,8 @@ in mat3 v_tbn;
 
 // point light
 uniform vec3 u_lightPositions[16];
-uniform vec3 u_lightIntensities[16];
+uniform vec3 u_lightColors[16];
+uniform float u_lightIntensities[16];
 uniform int u_lightCount;
 
 // ambient light
@@ -75,8 +76,8 @@ void main()
 		float lightDistSquared = dot(vec4(u_lightPositions[i], 1.0) - v_position, vec4(u_lightPositions[i], 1.0) - v_position);
 		float attenuation = 1.0 / lightDistSquared;
 		
-		vec4 diffuseTerm = calculateDiffuseLighting(toLight, normal, attenuation, u_lightIntensities[i]);
-		vec4 specularTerm = calculateSpecularLighting(toLight, normal, attenuation, u_lightIntensities[i]);
+		vec4 diffuseTerm = calculateDiffuseLighting(toLight, normal, attenuation, u_lightIntensities[i] * u_lightColors[i]);
+		vec4 specularTerm = calculateSpecularLighting(toLight, normal, attenuation, u_lightIntensities[i] * u_lightColors[i]);
 		
 		result += diffuseTerm;
 		result += specularTerm;

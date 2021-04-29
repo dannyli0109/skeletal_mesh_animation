@@ -33,6 +33,5 @@ private:
 	Camera camera;
 	SceneManager sceneManager;
 	int frame = 0;
-	std::vector<glm::mat4> currentPose;
 };
 

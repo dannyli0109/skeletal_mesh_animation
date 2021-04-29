@@ -19,8 +19,6 @@ struct Texture
 	GLuint id;
 };
 
-
-
 struct Mesh
 {
 	GLuint vertexBuffer;
@@ -75,7 +73,7 @@ struct Animation
 	int ticksPersecond;
 	std::unordered_map<std::string, BoneTransformTrack> boneTransforms;
 	glm::mat4 globalInverseTransform;
-
+	std::vector<glm::mat4> currentPose;
 };
 
 struct Camera
@@ -169,6 +167,13 @@ static void SetUniform(ShaderProgram* program, std::string varname, float value)
 	glUniform1f(varloc, value);
 }
 
+static void SetUniform(ShaderProgram* program, std::string varname, float& value, int count)
+{
+	GLuint varloc = glGetUniformLocation(program->shaderProgram, varname.c_str());
+	glUseProgram(program->shaderProgram);
+	glUniform1fv(varloc, count, &value);
+}
+
 static void SetUniform(ShaderProgram* program, std::string varname, glm::mat4 value)
 {
 	GLuint varloc = glGetUniformLocation(program->shaderProgram, varname.c_str());
@@ -188,6 +193,13 @@ static void SetUniform(ShaderProgram* program, std::string varname, glm::vec3 va
 	GLuint varloc = glGetUniformLocation(program->shaderProgram, varname.c_str());
 	glUseProgram(program->shaderProgram);
 	glUniform3fv(varloc, 1, &value[0]);
+}
+
+static void SetUniform(ShaderProgram* program, std::string varname, glm::vec3& value, int count)
+{
+	GLuint varloc = glGetUniformLocation(program->shaderProgram, varname.c_str());
+	glUseProgram(program->shaderProgram);
+	glUniform3fv(varloc, count, &value[0]);
 }
 
 static void SetUniform(ShaderProgram* program, std::string varname, int value)
@@ -480,7 +492,7 @@ static std::pair<int, float> GetTimeFraction(std::vector<float>& times, float& d
 }
 
 
-static void GetPose(Animation& animation, Bone& skeleton, float dt, std::vector<glm::mat4>& output, glm::mat4& parentTransform)
+static void GetPose(Animation& animation, Bone& skeleton, float dt, glm::mat4& parentTransform)
 {
 	if (animation.boneTransforms.find(skeleton.name) == animation.boneTransforms.end()) return;
 	BoneTransformTrack& btt = animation.boneTransforms[skeleton.name];
@@ -514,11 +526,13 @@ static void GetPose(Animation& animation, Bone& skeleton, float dt, std::vector<
 	glm::mat4 localTransform = positionMat * rotationMat * scaleMat;
 	glm::mat4 globalTransform = parentTransform * localTransform;
 
-	output[skeleton.id] = animation.globalInverseTransform * globalTransform * skeleton.offset;
+	/*output[skeleton.id] = animation.globalInverseTransform * globalTransform * skeleton.offset;
+	outputBone[skeleton.id] = globalTransform;*/
+	animation.currentPose[skeleton.id] = animation.globalInverseTransform * globalTransform * skeleton.offset;
 
 	for (Bone& child : skeleton.children)
 	{
-		GetPose(animation, child, dt, output, globalTransform);
+		GetPose(animation, child, dt, globalTransform);
 	}
 }
 

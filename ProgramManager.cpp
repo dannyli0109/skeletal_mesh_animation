@@ -75,9 +75,12 @@ int ProgramManager::Init()
         LoadTexture(&vampireSpecularTexture, "vampire\\textures\\Vampire_specular.png");
         resourceManager.textures.vampireSpecular = vampireSpecularTexture;
 
-        currentPose = {};
+        resourceManager.animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
+      /*  currentPose = {};
         currentPose.resize(boneCount, glm::mat4(1.0f));
         
+        currentPoseBone = {};
+        currentPoseBone.resize(boneCount, glm::mat4(1.0f));*/
     }
 
     {
@@ -90,12 +93,12 @@ int ProgramManager::Init()
     }
 
 
-
-    PointLight pointLight = {};
-    pointLight.position = { 0.0f, 100.0f, 100.0f };
-    pointLight.color = { 1.0f, 1.0f, 1.0f };
-    pointLight.intensity = 5000.0f;
-     AddPointLight(&sceneManager, pointLight);
+    {
+        glm::vec3 lightPosition = { 0.0f, 100.0f, 100.0f };
+        glm::vec3 lightColor = { 1.0f, 1.0f, 1.0f };
+        float lightIntensity = 5000.0f;
+        AddPointLight(&sceneManager, lightPosition, lightColor, lightIntensity);
+    }
 
     SetUniform(&resourceManager.shaders.phong, "u_diffuseTexture", 0);
     SetUniform(&resourceManager.shaders.phong, "u_normalTexture", 1);
@@ -126,7 +129,6 @@ void ProgramManager::Update()
         
         glm::mat4 projectionMatrix = GetProjectionMatrix(&camera);
         glm::mat4 viewMatrix = GetViewMatrix(&camera);
-        //glm::mat4 modelMatrix = glm::rotate(glm::mat4(1), time, { 0, 1, 0 });
         glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 0.01f, 0.01f, 0.01f });
         
         SetUniform(&resourceManager.shaders.phong, "u_projectionMatrix", projectionMatrix);
@@ -137,43 +139,27 @@ void ProgramManager::Update()
         BindTexture(&resourceManager.textures.vampireNormal, 1);
         BindTexture(&resourceManager.textures.vampireSpecular, 2);
 
-        for (int i = 0; i < sceneManager.pointlights.size(); i++)
-        {
-            std::stringstream lightPos;
-            lightPos << "u_lightPositions[" << i << "]";
-            std::stringstream lightIntensity;
-            lightIntensity << "u_lightIntensities[" << i << "]";
-            SetUniform(&resourceManager.shaders.phong, lightPos.str(), sceneManager.pointlights[i].position);
-            SetUniform(&resourceManager.shaders.phong, lightIntensity.str(), sceneManager.pointlights[i].color * sceneManager.pointlights[i].intensity);
-        }
-        SetUniform(&resourceManager.shaders.phong, "u_lightCount", (int)sceneManager.pointlights.size());
+        SetUniform(&resourceManager.shaders.phong, "u_lightPositions", sceneManager.pointlights.positions[0], sceneManager.pointlights.lightCount);
+        SetUniform(&resourceManager.shaders.phong, "u_lightColors", sceneManager.pointlights.colors[0], sceneManager.pointlights.lightCount);
+        SetUniform(&resourceManager.shaders.phong, "u_lightIntensities", sceneManager.pointlights.intensities[0], sceneManager.pointlights.lightCount);
+        SetUniform(&resourceManager.shaders.phong, "u_lightCount", (int)sceneManager.pointlights.lightCount);
 
         glm::mat4 parentTransform(1.0f);
-        GetPose(resourceManager.animations.vampireAnimation, resourceManager.skeletons.vampireSkeleton, elapsedTime, currentPose, parentTransform);
-
-        SetUniform(&resourceManager.shaders.phong, "u_boneTransforms", currentPose[0], currentPose.size());
-
-      /*  for (int i = 0; i < resourceManager.animations.vampireAnimation.bones.size(); i++)
-        {
-            std::stringstream ss;
-            ss << "u_finalBoneMatrices[" << i << "]";
-            SetUniform(&resourceManager.shaders.phong, ss.str(), resourceManager.animations.vampireAnimation.bones[i].localTransform);
-        }*/
-
-        //DrawMesh(&resourceManager.meshes.soulSpear);
+        GetPose(resourceManager.animations.vampireAnimation, resourceManager.skeletons.vampireSkeleton, elapsedTime, parentTransform);
+        SetUniform(&resourceManager.shaders.phong, "u_boneTransforms", resourceManager.animations.vampireAnimation.currentPose[0], resourceManager.animations.vampireAnimation.currentPose.size());
         DrawMesh(&resourceManager.meshes.vampire);
 
 
-        glClear(GL_DEPTH_BUFFER_BIT);
-        SetUniform(&resourceManager.shaders.color, "u_projectionMatrix", projectionMatrix);
-        SetUniform(&resourceManager.shaders.color, "u_viewMatrix", viewMatrix);
-        SetUniform(&resourceManager.shaders.color, "u_color", {0.0f, 1.0f, 0.0f});
+        //glClear(GL_DEPTH_BUFFER_BIT);
+        //SetUniform(&resourceManager.shaders.color, "u_projectionMatrix", projectionMatrix);
+        //SetUniform(&resourceManager.shaders.color, "u_viewMatrix", viewMatrix);
+        //SetUniform(&resourceManager.shaders.color, "u_color", {0.0f, 1.0f, 0.0f});
 
- /*       for (int i = 0; i < resourceManager.animations.vampireAnimation.bones.size(); i++)
-        {
-            SetUniform(&resourceManager.shaders.color, "u_modelMatrix", resourceManager.animations.vampireAnimation.bones[i].localTransform);
-            DrawMesh(&resourceManager.meshes.sphere);
-        }*/
+        //for (int i = 0; i < currentPoseBone.size(); i++)
+        //{
+        //    SetUniform(&resourceManager.shaders.color, "u_modelMatrix", currentPoseBone[i]);
+        //    DrawMesh(&resourceManager.meshes.sphere);
+        //}
 
         BeginRenderGUI();
         RenderGUI();
