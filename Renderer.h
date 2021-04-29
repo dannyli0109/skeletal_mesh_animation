@@ -7,13 +7,6 @@ struct ShaderProgram
 	GLuint shaderProgram;
 };
 
-struct TextureTypes
-{
-	std::string diffuse;
-	std::string normal;
-	std::string specular;
-};
-
 struct Texture
 {
 	GLuint id;
@@ -74,6 +67,8 @@ struct Animation
 	std::unordered_map<std::string, BoneTransformTrack> boneTransforms;
 	glm::mat4 globalInverseTransform;
 	std::vector<glm::mat4> currentPose;
+	Bone skeleton;
+	int boneCount;
 };
 
 struct Camera
@@ -438,7 +433,7 @@ static MeshData LoadMeshData(const aiScene* scene, Bone& skeleton, int& boneCoun
 	return meshData;
 }
 
-static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* meshData)
+static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* meshData, Bone& skeleton, int& boneCount)
 {
 	std::vector<Animation> animations;
 	aiAnimation** animationInfos = scene->mAnimations;
@@ -451,6 +446,8 @@ static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* mes
 		animation.duration = anim->mDuration;
 		animation.ticksPersecond = anim->mTicksPerSecond;
 		animation.globalInverseTransform = glm::inverse(ConvertAssimpToGLM(scene->mRootNode->mTransformation));
+		animation.boneCount = boneCount;
+		animation.skeleton = skeleton;
 
 		for (int j = 0; j < anim->mNumChannels; j++)
 		{

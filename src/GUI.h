@@ -34,13 +34,13 @@ static void EndRenderGUI()
     ImGui::EndFrame();
 }
 
-static void RenderGUI()
-{
-    // begin imgui window
-    ImGui::Begin("Imgui window");
-    // draw ui element in between
-    ImGui::End();
-}
+//static void RenderGUI()
+//{
+//    // begin imgui window
+//    ImGui::Begin("Imgui window");
+//    // draw ui element in between
+//    ImGui::End();
+//}
 
 static void DestroyGUI()
 {

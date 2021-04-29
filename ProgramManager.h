@@ -13,11 +13,12 @@
 
 #include "Utils.h"
 
-#include "GUI.h"
 
 #include "Renderer.h"
 #include "ResourceManager.h"
 #include "SceneManager.h"
+
+#include "GUI.h"
 
 class ProgramManager
 {
@@ -30,8 +31,6 @@ public:
 private:
 	GLFWwindow* window;
 	ResourceManager resourceManager;
-	Camera camera;
-	SceneManager sceneManager;
-	int frame = 0;
+	Scene scene;
 };
 

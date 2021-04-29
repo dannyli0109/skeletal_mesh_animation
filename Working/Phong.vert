@@ -34,6 +34,11 @@ void main()
 	boneTransform += u_boneTransforms[a_boneIds[2]] * a_weights[2];
 	boneTransform += u_boneTransforms[a_boneIds[3]] * a_weights[3];
 	
+	if (a_weights[0] == 0.0)
+	{
+		boneTransform = mat4(1.0);
+	}
+	
 	vec4 pos = boneTransform * vec4(a_position, 1.0);
 	vec4 normal = boneTransform * vec4(a_normal, 0.0);
 	

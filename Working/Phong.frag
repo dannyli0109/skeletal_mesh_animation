@@ -5,6 +5,7 @@ out vec4 f_color;
 uniform sampler2D u_diffuseTexture;
 uniform sampler2D u_normalTexture;
 uniform sampler2D u_specularTexture;
+uniform sampler2D u_emissionTexture;
 
 // color
 in vec3 v_color;
@@ -34,6 +35,8 @@ uniform vec3 u_ks;
 uniform vec3 u_cameraPos;
 uniform float u_specularPower;
 
+// emission
+uniform vec3 u_ke;
 
 vec4 calculateNormal()
 {
@@ -44,7 +47,7 @@ vec4 calculateNormal()
 
 vec4 calculateAmbientLighting()
 {
-	return vec4(u_ambientLightIntensity, 1.0) * vec4(u_ka, 1.0);
+	return  texture(u_diffuseTexture, v_uvs) * vec4(u_ambientLightIntensity, 1.0) * vec4(u_ka, 1.0);
 }
 
 vec4 calculateDiffuseLighting(vec4 toLight, vec4 normal, float attenuation, vec3 lightIntensity)
@@ -63,6 +66,11 @@ vec4 calculateSpecularLighting(vec4 toLight, vec4 normal, float attenuation, vec
 	float specularLevel = pow(max(0.0, dot(toCamera, reflection)), u_specularPower);
 	vec4 specularTerm = vec4(u_ks, 1.0) * vec4(lightIntensity, 1) * attenuation * specularLevel;
 	return specularTerm * specularColor;
+}
+
+vec4 calculateEmission()
+{
+	return texture(u_emissionTexture, v_uvs) * vec4(u_ke, 1.0);
 }
 
 void main()
@@ -84,6 +92,9 @@ void main()
 	}
 	vec4 ambientTerm = calculateAmbientLighting();
 	result += ambientTerm;
+	
+	vec4 emission = calculateEmission();
+	result += emission;
 	
 	f_color = result;
 }

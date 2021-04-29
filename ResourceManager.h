@@ -33,6 +33,7 @@ struct Textures
 	Texture vampireDiffuse;
 	Texture vampireNormal;
 	Texture vampireSpecular;
+	Texture vampireEmission;
 };
 
 struct ResourceManager
