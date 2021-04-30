@@ -107,5 +107,11 @@
     <ClInclude Include="SceneManager.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="lib\stb_image\stb_image_write.h">
+      <Filter>libs\stb_image</Filter>
+    </ClInclude>
+    <ClInclude Include="InputManager.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

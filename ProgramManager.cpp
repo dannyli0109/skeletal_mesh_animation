@@ -42,13 +42,34 @@ int ProgramManager::Init()
         scene.camera = camera;
     }
 
-    ShaderProgram colorShader = {};
-    InitShaderProgram(&colorShader, "Color.vert", "Color.frag");
-    resourceManager.shaders.color = colorShader;
+    {
+        ShaderProgram colorShader = {};
+        InitShaderProgram(&colorShader, "Color.vert", "Color.frag");
+        resourceManager.shaders.color = colorShader;
+    }
 
-    ShaderProgram phongShader = {};
-    InitShaderProgram(&phongShader, "Phong.vert", "Phong.frag");
-    resourceManager.shaders.phong = phongShader;
+    {
+        ShaderProgram phongShader = {};
+        InitShaderProgram(&phongShader, "Phong.vert", "Phong.frag");
+        resourceManager.shaders.phong = phongShader;
+        SetUniform(&resourceManager.shaders.phong, "u_diffuseTexture", 0);
+        SetUniform(&resourceManager.shaders.phong, "u_normalTexture", 1);
+        SetUniform(&resourceManager.shaders.phong, "u_specularTexture", 2);
+        SetUniform(&resourceManager.shaders.phong, "u_emissionTexture", 3);
+    }
+
+    {
+        ShaderProgram outputShader = {};
+        InitShaderProgram(&outputShader, "Output.vert", "Output.frag");
+        resourceManager.shaders.output = outputShader;
+        SetUniform(&resourceManager.shaders.output, "u_colourTexture", 0);
+    }
+
+    {
+        FrameBuffer fb = {};
+        InitFrameBuffer(&fb, width, height);
+        resourceManager.frameBuffers.output = fb;
+    }
 
     {
         // init vampire
@@ -113,6 +134,37 @@ int ProgramManager::Init()
         resourceManager.meshes.sphere = sphereMesh;
     }
 
+    // quad mesh
+    {
+        MeshData quadMeshData = {};
+        VertexData v0 = {};
+        v0.position = { -0.5f, 0.5f, 0.5f };
+        v0.uv = { 0, 0 };
+        
+        VertexData v1 = {};
+        v1.position = { 0.5f, 0.5f, 0.5f };
+        v1.uv = { 1.0f, 0 };
+
+        VertexData v2 = {};
+        v2.position = { -0.5f, -0.5f, 0.5f };
+        v2.uv = { 0, 1.0f };
+
+        VertexData v3 = {};
+        v3.position = { 0.5f, -0.5f, 0.5f };
+        v3.uv = { 1.0f, 1.0f };
+
+        quadMeshData.vertices.resize(4);
+        quadMeshData.vertices[0] = v0;
+        quadMeshData.vertices[1] = v1;
+        quadMeshData.vertices[2] = v2;
+        quadMeshData.vertices[3] = v3;
+        quadMeshData.indices = { 0, 1, 2, 1, 3, 2 };
+
+        Mesh quadMesh = {};
+        InitMesh(&quadMesh, &quadMeshData);
+        resourceManager.meshes.quad = quadMesh;
+    }
+
     {
         AmbientLight ambientLight = {};
         ambientLight.color = { 1.0f, 1.0f, 1.0f };
@@ -127,11 +179,6 @@ int ProgramManager::Init()
         //AddPointLight(&scene, lightPosition, lightColor, lightIntensity);
     }
 
-    SetUniform(&resourceManager.shaders.phong, "u_diffuseTexture", 0);
-    SetUniform(&resourceManager.shaders.phong, "u_normalTexture", 1);
-    SetUniform(&resourceManager.shaders.phong, "u_specularTexture", 2);
-    SetUniform(&resourceManager.shaders.phong, "u_emissionTexture", 3);
-
     InitGUI(window);
     return 0;
 }
@@ -143,23 +190,39 @@ void ProgramManager::Update()
         float elapsedTime = (float)glfwGetTime();
         //Tell GLFW to check if anything is going on with input, etc.
         glfwPollEvents();
+
+
         //Clear the screen – eventually do rendering code here.
+        BindFrameBuffer(&resourceManager.frameBuffers.output);
+        glEnable(GL_DEPTH_TEST);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
         UpdateScene(&resourceManager.shaders.phong, scene);
         RenderModels(&resourceManager.shaders.phong, scene.models);
-
         RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
+        UnbindFrameBuffer();
+        UnbindTexture();
+
+        glDisable(GL_DEPTH_TEST);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        glUseProgram(resourceManager.shaders.output.shaderProgram);
+        glActiveTexture(GL_TEXTURE0 + 0);
+        glBindTexture(GL_TEXTURE_2D, resourceManager.frameBuffers.output.texture);
+        DrawMesh(&resourceManager.meshes.quad);
+        UnbindTexture();
 
         BeginRenderGUI();
         // begin imgui window
         ImGui::Begin("Imgui window");
         // draw ui element in between
 
+        if (ImGui::Button("capture"))
+        {
+            SaveImage("outputs\\test.png", window);
+        }
         ImGui::End();
         EndRenderGUI();
-
         //Swapping the buffers – this means this frame is over.
         glfwSwapBuffers(window);
     }

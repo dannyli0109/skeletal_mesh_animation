@@ -6,6 +6,7 @@ struct Meshes
 	Mesh soulSpear;
 	Mesh vampire;
 	Mesh sphere;
+	Mesh quad;
 };
 
 struct Skeletons
@@ -22,6 +23,7 @@ struct ShaderPrograms
 {
 	ShaderProgram color;
 	ShaderProgram phong;
+	ShaderProgram output;
 };
 
 struct Textures
@@ -36,6 +38,11 @@ struct Textures
 	Texture vampireEmission;
 };
 
+struct FrameBuffers
+{
+	FrameBuffer output;
+};
+
 struct ResourceManager
 {
 	Meshes meshes;
@@ -43,4 +50,5 @@ struct ResourceManager
 	Textures textures;
 	Animations animations;
 	Skeletons skeletons;
+	FrameBuffers frameBuffers;
 };

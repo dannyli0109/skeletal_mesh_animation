@@ -84,6 +84,13 @@ struct Camera
 	float far;
 };
 
+struct FrameBuffer
+{
+	GLuint fbo;
+	GLuint rbo;
+	GLuint texture;
+};
+
 
 // Shader program
 static void InitShaderProgram(ShaderProgram* program, std::string vertexFileName, std::string fragmentFileName)
@@ -243,6 +250,11 @@ static void BindTexture(Texture* texture, int textureUnit)
 {
 	glActiveTexture(GL_TEXTURE0 + textureUnit);
 	glBindTexture(GL_TEXTURE_2D, texture->id);
+}
+
+static void UnbindTexture()
+{
+	glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 static glm::mat4 ConvertAssimpToGLM(aiMatrix4x4 matrix)
@@ -604,3 +616,47 @@ static glm::mat4 GetViewMatrix(Camera* camera)
 	return glm::lookAt(camera->position, camera->position + forward, camera->up);
 }
 
+// Frame Buffer
+static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
+{
+	glGenFramebuffers(1, &frameBuffer->fbo);
+	glGenTextures(1, &frameBuffer->texture);
+	glGenRenderbuffers(1, &frameBuffer->rbo);
+
+	glBindTexture(GL_TEXTURE_2D, frameBuffer->texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->fbo);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameBuffer->texture, 0);
+
+	glBindRenderbuffer(GL_RENDERBUFFER, frameBuffer->rbo);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, frameBuffer->rbo);
+
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE)
+	{
+		std::cout << "Frame buffer initialised successfully" << std::endl;
+	}
+	else {
+		std::cout << "Failed to initialise frame buffer" << std::endl;
+		glDeleteFramebuffers(1, &frameBuffer->fbo);
+		glDeleteTextures(1, &frameBuffer->texture);
+	}
+
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+static void BindFrameBuffer(FrameBuffer* frameBuffer)
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->fbo);
+}
+
+static void UnbindFrameBuffer()
+{
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
