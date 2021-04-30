@@ -88,7 +88,7 @@ struct FrameBuffer
 {
 	GLuint fbo;
 	GLuint rbo;
-	GLuint texture;
+	Texture texture;
 };
 
 
@@ -620,10 +620,10 @@ static glm::mat4 GetViewMatrix(Camera* camera)
 static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
 {
 	glGenFramebuffers(1, &frameBuffer->fbo);
-	glGenTextures(1, &frameBuffer->texture);
+	glGenTextures(1, &frameBuffer->texture.id);
 	glGenRenderbuffers(1, &frameBuffer->rbo);
 
-	glBindTexture(GL_TEXTURE_2D, frameBuffer->texture);
+	glBindTexture(GL_TEXTURE_2D, frameBuffer->texture.id);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 	
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -632,7 +632,7 @@ static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->fbo);
-	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameBuffer->texture, 0);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, frameBuffer->texture.id, 0);
 
 	glBindRenderbuffer(GL_RENDERBUFFER, frameBuffer->rbo);
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width, height);
@@ -645,7 +645,8 @@ static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
 	else {
 		std::cout << "Failed to initialise frame buffer" << std::endl;
 		glDeleteFramebuffers(1, &frameBuffer->fbo);
-		glDeleteTextures(1, &frameBuffer->texture);
+		glDeleteRenderbuffers(1, &frameBuffer->rbo);
+		glDeleteTextures(1, &frameBuffer->texture.id);
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -654,9 +655,39 @@ static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
 static void BindFrameBuffer(FrameBuffer* frameBuffer)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->fbo);
+	glEnable(GL_DEPTH_TEST);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 static void UnbindFrameBuffer()
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+
+static void DrawFrameBuffer(ShaderProgram* shaderProgram, Mesh* mesh, FrameBuffer* frameBuffer)
+{
+	glDisable(GL_DEPTH_TEST);
+	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+	glUseProgram(shaderProgram->shaderProgram);
+	BindTexture(&frameBuffer->texture, 0);
+	DrawMesh(mesh);
+	UnbindTexture();
+}
+
+static void SaveImage(std::string path, GLFWwindow* window, FrameBuffer* fb)
+{
+	int width, height;
+	glfwGetFramebufferSize(window, &width, &height);
+	GLsizei nrChannels = 3;
+	GLsizei stride = nrChannels * width;
+	GLsizei bufferSize = stride * height;
+	std::vector<char> buffer(bufferSize);
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glNamedFramebufferReadBuffer(fb->fbo, GL_FRONT);
+	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+	stbi_flip_vertically_on_write(true);
+	stbi_write_png(path.c_str(), width, height, nrChannels, buffer.data(), stride);
+}
+

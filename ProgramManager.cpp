@@ -117,7 +117,7 @@ int ProgramManager::Init()
         material.phong.kd = { 1.0f, 1.0f, 1.0f };
         material.phong.ks = { 1.0f, 1.0f, 1.0f };
         material.phong.ke = { 1.0f, 1.0f, 1.0f };
-        material.phong.specularPower = 256.0f;
+        material.phong.specularPower = 8.0f;
 
         AddModel(&scene, resourceManager.meshes.vampire, modelMatrix, 
             material,
@@ -188,29 +188,20 @@ void ProgramManager::Update()
     while (!glfwWindowShouldClose(window))
     {
         float elapsedTime = (float)glfwGetTime();
-        //Tell GLFW to check if anything is going on with input, etc.
         glfwPollEvents();
 
-
-        //Clear the screen – eventually do rendering code here.
         BindFrameBuffer(&resourceManager.frameBuffers.output);
-        glEnable(GL_DEPTH_TEST);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         UpdateScene(&resourceManager.shaders.phong, scene);
         RenderModels(&resourceManager.shaders.phong, scene.models);
         RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
         UnbindFrameBuffer();
-        UnbindTexture();
 
-        glDisable(GL_DEPTH_TEST);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        glUseProgram(resourceManager.shaders.output.shaderProgram);
-        glActiveTexture(GL_TEXTURE0 + 0);
-        glBindTexture(GL_TEXTURE_2D, resourceManager.frameBuffers.output.texture);
-        DrawMesh(&resourceManager.meshes.quad);
-        UnbindTexture();
+        // draw frame buffer to screen
+        DrawFrameBuffer(
+            &resourceManager.shaders.output, 
+            &resourceManager.meshes.quad, 
+            &resourceManager.frameBuffers.output
+        );
 
         BeginRenderGUI();
         // begin imgui window
@@ -219,7 +210,7 @@ void ProgramManager::Update()
 
         if (ImGui::Button("capture"))
         {
-            SaveImage("outputs\\test.png", window);
+            SaveImage("outputs\\test.png", window, &resourceManager.frameBuffers.output);
         }
         ImGui::End();
         EndRenderGUI();

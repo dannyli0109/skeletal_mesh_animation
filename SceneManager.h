@@ -86,11 +86,13 @@ static void UpdatePointLights(ShaderProgram* shaderProgram, PointLights& pointLi
 
 static void UpdateCamera(ShaderProgram* shaderProgram, Camera& camera)
 {
+	glm::vec3 cameraPos = camera.position;
 	glm::mat4 projectionMatrix = GetProjectionMatrix(&camera);
 	glm::mat4 viewMatrix = GetViewMatrix(&camera);
 
 	SetUniform(shaderProgram, "u_projectionMatrix", projectionMatrix);
 	SetUniform(shaderProgram, "u_viewMatrix", viewMatrix);
+	SetUniform(shaderProgram, "u_cameraPos", cameraPos);
 }
 
 static void UpdateMaterial(ShaderProgram* shaderProgram, Material& material)
