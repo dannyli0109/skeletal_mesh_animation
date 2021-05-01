@@ -39,5 +39,6 @@ private:
 	Input input;
 	Input lastInput;
 	float dt;
+	int currentFrame = 0;
 };
 

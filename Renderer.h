@@ -492,7 +492,7 @@ static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* mes
 
 static std::pair<int, float> GetTimeFraction(std::vector<float>& times, float& dt) {
 	int segment = 0;
-	while (dt > times[segment])
+	while (dt >= times[segment])
 		segment++;
 	float start = times[segment - 1];
 	float end = times[segment];
@@ -543,6 +543,11 @@ static void GetPose(Animation& animation, Bone& skeleton, float dt, glm::mat4& p
 	{
 		GetPose(animation, child, dt, globalTransform);
 	}
+}
+
+static float GetAnimationEndTime(Animation& animation)
+{
+	//animati
 }
 
 static void InitMesh(Mesh* mesh, MeshData* meshData)

@@ -123,9 +123,8 @@ static void UpdateMaterial(ShaderProgram* shaderProgram, Material& material)
 	}
 }
 
-static void UpdateModels(ShaderProgram* shaderProgram, Models& models)
+static void UpdateModels(ShaderProgram* shaderProgram, Models& models, float elapsedTime)
 {
-	float elapsedTime = glfwGetTime();
 	glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 0.01f, 0.01f, 0.01f });
 	for (int i = 0; i < models.count; i++)
 	{
@@ -142,11 +141,11 @@ static void UpdateAmbientLight(ShaderProgram* shaderProgram, AmbientLight& ambie
 	SetUniform(shaderProgram, "u_ambientLightIntensity", ambientLight.color * ambientLight.intensity);
 }
 
-static void UpdateScene(ShaderProgram* shaderProgram, Scene& scene)
+static void UpdateScene(ShaderProgram* shaderProgram, Scene& scene, float elapsedTime)
 {
 	UpdatePointLights(shaderProgram, scene.pointLights);
 	UpdateCamera(shaderProgram, scene.camera);
-	UpdateModels(shaderProgram, scene.models);
+	UpdateModels(shaderProgram, scene.models, elapsedTime);
 	UpdateAmbientLight(shaderProgram, scene.ambientLight);
 }
 

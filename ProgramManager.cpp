@@ -31,15 +31,15 @@ int ProgramManager::Init()
 
     {
         Camera camera = {};
-        camera.position = { 0, 100.0f, 1000.0f };
+        camera.position = { 0, 5.0f, 20.0f };
         camera.up = { 0, 1.0f, 0 };
         camera.theta = glm::radians(270.0f);
         camera.phi = glm::radians(0.0f);
 
         camera.fovY = glm::radians(45.0f);
         camera.aspect = (float)width / (float)height;
-        camera.near = 1.0f;
-        camera.far = 2000.0f;
+        camera.near = 0.1f;
+        camera.far = 100.0f;
         scene.camera = camera;
     }
 
@@ -107,7 +107,7 @@ int ProgramManager::Init()
     }
 
     {
-        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 0.01f, 0.01f, 0.01f });
+        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 0.0005f, 0.0005f, 0.0005f });
         Material material = {};
         material.phong.diffuseTexture = resourceManager.textures.vampireDiffuse;
         material.phong.normalTexture = resourceManager.textures.vampireNormal;
@@ -194,20 +194,13 @@ void ProgramManager::Update()
     {
         float elapsedTime = (float)glfwGetTime();
         lastInput = input;
-        glfwPollEvents();
-        double xPos, yPos;
-        glfwGetCursorPos(window, &xPos, &yPos);
-        input.mouseX = xPos;
-        input.mouseY = yPos;
-        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) input.wKey = true;
-        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) input.aKey = true;
-        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) input.sKey = true;
-        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) input.dKey = true;
+        input = {};
+        HandleInput(window, &input);
 
-        HandleCameraController(&scene.camera, &input, &lastInput, window, dt, 1000.0f, 2.0f);
+        HandleCameraController(&scene.camera, &input, &lastInput, window, dt, 50.0f, 2.0f);
 
         BindFrameBuffer(&resourceManager.frameBuffers.output);
-        UpdateScene(&resourceManager.shaders.phong, scene);
+        UpdateScene(&resourceManager.shaders.phong, scene, elapsedTime);
         RenderModels(&resourceManager.shaders.phong, scene.models);
         RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
         UnbindFrameBuffer();
@@ -222,11 +215,37 @@ void ProgramManager::Update()
         BeginRenderGUI();
         // begin imgui window
         ImGui::Begin("Imgui window");
+        std::stringstream sstream;
+        sstream << "Current Frame: " << currentFrame;
+        ImGui::Text(sstream.str().c_str());
         // draw ui element in between
 
         if (ImGui::Button("capture"))
         {
-            SaveImage("outputs\\test.png", window, &resourceManager.frameBuffers.output);
+            int frames = 24;
+            float timeIncrement = resourceManager.animations.vampireAnimation.duration / (float)frames;
+            float frameTime = 0;
+            for (int i = 0; i < frames; i++)
+            {
+                BindFrameBuffer(&resourceManager.frameBuffers.output);
+                UpdateScene(&resourceManager.shaders.phong, scene, frameTime);
+                RenderModels(&resourceManager.shaders.phong, scene.models);
+                RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
+                UnbindFrameBuffer();
+                // draw frame buffer to screen
+                DrawFrameBuffer(
+                    &resourceManager.shaders.output,
+                    &resourceManager.meshes.quad,
+                    &resourceManager.frameBuffers.output
+                );
+                std::stringstream ss;
+                ss << "outputs\\frame" << i << ".png";
+                SaveImage(ss.str(), window, &resourceManager.frameBuffers.output);
+                frameTime += timeIncrement;
+                currentFrame = i;
+            }
+            
+            /*SaveImage("outputs\\test.png", window, &resourceManager.frameBuffers.output);*/
         }
         ImGui::End();
         EndRenderGUI();
