@@ -16,6 +16,7 @@
 #include "stb_image_write.h"
 
 #include "Utils.h"
+#include "InputManager.h"
 
 #include "Renderer.h"
 #include "ResourceManager.h"
@@ -35,5 +36,8 @@ private:
 	GLFWwindow* window;
 	ResourceManager resourceManager;
 	Scene scene;
+	Input input;
+	Input lastInput;
+	float dt;
 };
 

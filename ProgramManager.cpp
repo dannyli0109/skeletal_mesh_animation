@@ -21,7 +21,8 @@ int ProgramManager::Init()
     if (!gladLoadGL())
         return -1;
 
-    glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 
     int width;
@@ -179,6 +180,10 @@ int ProgramManager::Init()
         //AddPointLight(&scene, lightPosition, lightColor, lightIntensity);
     }
 
+    input = {};
+    lastInput = {};
+    dt = 0;
+    glfwSwapInterval(1);
     InitGUI(window);
     return 0;
 }
@@ -188,7 +193,18 @@ void ProgramManager::Update()
     while (!glfwWindowShouldClose(window))
     {
         float elapsedTime = (float)glfwGetTime();
+        lastInput = input;
         glfwPollEvents();
+        double xPos, yPos;
+        glfwGetCursorPos(window, &xPos, &yPos);
+        input.mouseX = xPos;
+        input.mouseY = yPos;
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) input.wKey = true;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) input.aKey = true;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) input.sKey = true;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) input.dKey = true;
+
+        HandleCameraController(&scene.camera, &input, &lastInput, window, dt, 1000.0f, 2.0f);
 
         BindFrameBuffer(&resourceManager.frameBuffers.output);
         UpdateScene(&resourceManager.shaders.phong, scene);
@@ -215,6 +231,8 @@ void ProgramManager::Update()
         ImGui::End();
         EndRenderGUI();
         //Swapping the buffers – this means this frame is over.
+
+        dt = (float)glfwGetTime() - elapsedTime;
         glfwSwapBuffers(window);
     }
 }

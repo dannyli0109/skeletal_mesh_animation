@@ -615,6 +615,29 @@ static glm::mat4 GetViewMatrix(Camera* camera)
 	glm::vec3 forward(std::cos(camera->phi) * std::cos(camera->theta), std::sin(camera->phi), std::cos(camera->phi) * std::sin(camera->theta));
 	return glm::lookAt(camera->position, camera->position + forward, camera->up);
 }
+static void HandleCameraController(Camera* camera, Input* input, Input* lastInput, GLFWwindow* window, float dt, float moveSpeed, float turnSpeed)
+{
+	
+	glm::vec3 forward(cosf(camera->phi) * cosf(camera->theta), sinf(camera->phi), sinf(camera->theta));
+	glm::vec3 right(-sinf(camera->theta), 0, cos(camera->theta));
+	glm::vec3 up(0, 1, 0);
+
+	if (input->wKey)
+		camera->position += forward * moveSpeed * dt;
+	if (input->sKey)
+		camera->position -= forward * moveSpeed * dt;
+	if (input->aKey)
+		camera->position -= right * moveSpeed * dt;
+	if (input->dKey)
+		camera->position += right * moveSpeed * dt;
+
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS)
+	{
+		camera->theta += turnSpeed * (input->mouseX - lastInput->mouseX) * dt;
+		camera->phi -= turnSpeed * (input->mouseY - lastInput->mouseY) * dt;
+	}
+}
+
 
 // Frame Buffer
 static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
@@ -656,7 +679,7 @@ static void BindFrameBuffer(FrameBuffer* frameBuffer)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, frameBuffer->fbo);
 	glEnable(GL_DEPTH_TEST);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
@@ -668,7 +691,7 @@ static void UnbindFrameBuffer()
 static void DrawFrameBuffer(ShaderProgram* shaderProgram, Mesh* mesh, FrameBuffer* frameBuffer)
 {
 	glDisable(GL_DEPTH_TEST);
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glUseProgram(shaderProgram->shaderProgram);
 	BindTexture(&frameBuffer->texture, 0);
@@ -680,13 +703,13 @@ static void SaveImage(std::string path, GLFWwindow* window, FrameBuffer* fb)
 {
 	int width, height;
 	glfwGetFramebufferSize(window, &width, &height);
-	GLsizei nrChannels = 3;
+	GLsizei nrChannels = 4;
 	GLsizei stride = nrChannels * width;
 	GLsizei bufferSize = stride * height;
 	std::vector<char> buffer(bufferSize);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glNamedFramebufferReadBuffer(fb->fbo, GL_FRONT);
-	glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer.data());
+	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer.data());
 	stbi_flip_vertically_on_write(true);
 	stbi_write_png(path.c_str(), width, height, nrChannels, buffer.data(), stride);
 }
