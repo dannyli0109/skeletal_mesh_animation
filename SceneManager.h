@@ -8,29 +8,6 @@ struct PointLights
 	int count;
 };
 
-struct Material
-{
-	int type;
-	union
-	{
-		struct {
-			Texture diffuseTexture;
-			Texture normalTexture;
-			Texture specularTexture;
-			Texture emissionTexture;
-			glm::vec3 ka;
-			glm::vec3 kd;
-			glm::vec3 ks;
-			glm::vec3 ke;
-			float specularPower;
-		} phong;
-
-		struct {
-			glm::vec3 color;
-		} color;
-	};
-};
-
 struct Models
 {
 	std::vector<Mesh> meshes;

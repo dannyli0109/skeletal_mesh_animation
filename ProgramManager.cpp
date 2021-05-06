@@ -7,15 +7,16 @@ int ProgramManager::Init()
         return -1;
 
     //Set resolution here, and give your window a different title.
-    window = glfwCreateWindow(1280, 720, "Window", nullptr, nullptr);
-    if (!window)
+    window = {};
+    window.glfwWindow = glfwCreateWindow(1280, 720, "Window", nullptr, nullptr);
+    if (!window.glfwWindow)
     {
         glfwTerminate(); //Again, you can put a real error message here.
         return -1;
     }
 
     //This tells GLFW that the window we created is the one we should render to.
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(window.glfwWindow);
 
     //Tell GLAD to load all its OpenGL functions.
     if (!gladLoadGL())
@@ -23,23 +24,22 @@ int ProgramManager::Init()
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_SCISSOR_TEST);
 
+    glfwGetWindowSize(window.glfwWindow, &window.width, &window.height);
 
-    int width;
-    int height;
-    glfwGetWindowSize(window, &width, &height);
-
+    scene = {};
     {
         Camera camera = {};
-        camera.position = { 0, 5.0f, 20.0f };
+        camera.position = { 0, 10000.0f, 30000.0f };
         camera.up = { 0, 1.0f, 0 };
         camera.theta = glm::radians(270.0f);
         camera.phi = glm::radians(0.0f);
 
         camera.fovY = glm::radians(45.0f);
-        camera.aspect = (float)width / (float)height;
-        camera.near = 0.1f;
-        camera.far = 100.0f;
+        camera.aspect = (float)window.width / (float)window.height;
+        camera.near = 1.0f;
+        camera.far = 100000.0f;
         scene.camera = camera;
     }
 
@@ -68,7 +68,7 @@ int ProgramManager::Init()
 
     {
         FrameBuffer fb = {};
-        InitFrameBuffer(&fb, width, height);
+        InitFrameBuffer(&fb, window.width, window.height);
         resourceManager.frameBuffers.output = fb;
     }
 
@@ -107,7 +107,7 @@ int ProgramManager::Init()
     }
 
     {
-        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 0.0005f, 0.0005f, 0.0005f });
+        glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });
         Material material = {};
         material.phong.diffuseTexture = resourceManager.textures.vampireDiffuse;
         material.phong.normalTexture = resourceManager.textures.vampireNormal;
@@ -139,20 +139,20 @@ int ProgramManager::Init()
     {
         MeshData quadMeshData = {};
         VertexData v0 = {};
-        v0.position = { -0.5f, 0.5f, 0.5f };
-        v0.uv = { 0, 0 };
+        v0.mesh.position = { -0.5f, 0.5f, 0.5f };
+        v0.mesh.uv = { 0, 0 };
         
         VertexData v1 = {};
-        v1.position = { 0.5f, 0.5f, 0.5f };
-        v1.uv = { 1.0f, 0 };
+        v1.mesh.position = { 0.5f, 0.5f, 0.5f };
+        v1.mesh.uv = { 1.0f, 0 };
 
         VertexData v2 = {};
-        v2.position = { -0.5f, -0.5f, 0.5f };
-        v2.uv = { 0, 1.0f };
+        v2.mesh.position = { -0.5f, -0.5f, 0.5f };
+        v2.mesh.uv = { 0, 1.0f };
 
         VertexData v3 = {};
-        v3.position = { 0.5f, -0.5f, 0.5f };
-        v3.uv = { 1.0f, 1.0f };
+        v3.mesh.position = { 0.5f, -0.5f, 0.5f };
+        v3.mesh.uv = { 1.0f, 1.0f };
 
         quadMeshData.vertices.resize(4);
         quadMeshData.vertices[0] = v0;
@@ -183,76 +183,102 @@ int ProgramManager::Init()
     input = {};
     lastInput = {};
     dt = 0;
+
+    glfwSetWindowUserPointer(window.glfwWindow, &window);
+    glfwSetWindowSizeCallback(window.glfwWindow, OnWindowResize);
+
     glfwSwapInterval(1);
-    InitGUI(window);
+    InitGUI(window.glfwWindow);
     return 0;
 }
 
 void ProgramManager::Update()
 {
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window.glfwWindow))
     {
         float elapsedTime = (float)glfwGetTime();
         lastInput = input;
         input = {};
-        HandleInput(window, &input);
+        HandleInput(window.glfwWindow, &input);
+        if (window.width == 0 || window.height == 0) continue;
+        if (window.shouldUpdate)
+        {
+            glViewport(0, 0, window.width, window.height);
+            InitFrameBuffer(&resourceManager.frameBuffers.output, window.width, window.height);
+            scene.camera.aspect = (float)window.width / (float)window.height;
+            window.shouldUpdate = false;
+        }
 
-        HandleCameraController(&scene.camera, &input, &lastInput, window, dt, 50.0f, 2.0f);
+        HandleCameraController(&scene.camera, &input, &lastInput, window.glfwWindow, dt, 50.0f, 2.0f);
 
+        glViewport(0, 0, window.width, window.height);
         BindFrameBuffer(&resourceManager.frameBuffers.output);
         UpdateScene(&resourceManager.shaders.phong, scene, elapsedTime);
         RenderModels(&resourceManager.shaders.phong, scene.models);
         RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
         UnbindFrameBuffer();
-
         // draw frame buffer to screen
+        
         DrawFrameBuffer(
-            &resourceManager.shaders.output, 
-            &resourceManager.meshes.quad, 
-            &resourceManager.frameBuffers.output
+            &resourceManager.shaders.output,
+            &resourceManager.meshes.quad,
+            &resourceManager.frameBuffers.output,
+            0, 0,
+            1.0f, 1.0f
         );
 
         BeginRenderGUI();
         // begin imgui window
         ImGui::Begin("Imgui window");
-        std::stringstream sstream;
-        sstream << "Current Frame: " << currentFrame;
-        ImGui::Text(sstream.str().c_str());
-        // draw ui element in between
 
-        if (ImGui::Button("capture"))
+        ImGui::DragFloat3("Camera Position", &scene.camera.position[0], 0.1f);
+
+        ImGui::InputInt("Width", &outputWidth);
+        ImGui::InputInt("Height", &outputHeight);
+        ImGui::InputInt("Frames", &frames);
+
+        if (ImGui::Button("capture") && frames > 0 && outputWidth > 0 && outputHeight > 0)
         {
-            int frames = 24;
-            float timeIncrement = resourceManager.animations.vampireAnimation.duration / (float)frames;
-            float frameTime = 0;
-            for (int i = 0; i < frames; i++)
+            float timeIncrement = resourceManager.animations.vampireAnimation.duration / (float)(frames);
+
+            glViewport(0, 0, outputWidth, outputHeight);
+            InitFrameBuffer(&resourceManager.frameBuffers.output, outputWidth, outputHeight);
+            scene.camera.aspect = (float)outputWidth / (float)outputHeight;
+            window.shouldUpdate = true;
+
+            for (int j = 0; j < 1; j++)
             {
-                BindFrameBuffer(&resourceManager.frameBuffers.output);
-                UpdateScene(&resourceManager.shaders.phong, scene, frameTime);
-                RenderModels(&resourceManager.shaders.phong, scene.models);
-                RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
-                UnbindFrameBuffer();
-                // draw frame buffer to screen
-                DrawFrameBuffer(
-                    &resourceManager.shaders.output,
-                    &resourceManager.meshes.quad,
-                    &resourceManager.frameBuffers.output
-                );
-                std::stringstream ss;
-                ss << "outputs\\frame" << i << ".png";
-                SaveImage(ss.str(), window, &resourceManager.frameBuffers.output);
-                frameTime += timeIncrement;
-                currentFrame = i;
-            }
-            
-            /*SaveImage("outputs\\test.png", window, &resourceManager.frameBuffers.output);*/
+                float frameTime = 0;
+                for (int i = 0; i < frames; i++)
+                {
+                    BindFrameBuffer(&resourceManager.frameBuffers.output);
+                    UpdateScene(&resourceManager.shaders.phong, scene, frameTime);
+                    RenderModels(&resourceManager.shaders.phong, scene.models);
+                    RenderLigths(&resourceManager.shaders.color, resourceManager, scene);
+                    UnbindFrameBuffer();
+                    // draw frame buffer to screen
+
+                    DrawFrameBuffer(
+                        &resourceManager.shaders.output,
+                        &resourceManager.meshes.quad,
+                        &resourceManager.frameBuffers.output,
+                        0, 0,
+                        1.0f, 1.0f
+                    );
+
+                    std::stringstream ss;
+                    ss << "outputs\\frame" << i + j * frames << ".png";
+                    SaveImage(ss.str(), window.glfwWindow, &resourceManager.frameBuffers.output);
+                    frameTime += timeIncrement;
+                }
+            }            
         }
         ImGui::End();
         EndRenderGUI();
         //Swapping the buffers – this means this frame is over.
 
         dt = (float)glfwGetTime() - elapsedTime;
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(window.glfwWindow);
     }
 }
 

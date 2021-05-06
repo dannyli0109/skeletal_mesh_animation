@@ -22,15 +22,25 @@ struct Mesh
 
 struct VertexData
 {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec3 vertTangent;
-	glm::vec3 vertBitangent;
-	glm::vec4 color;
-	glm::vec2 uv;
+	union
+	{
+		struct {
+			glm::vec3 position;
+			glm::vec3 normal;
+			glm::vec3 vertTangent;
+			glm::vec3 vertBitangent;
+			glm::vec4 color;
+			glm::vec2 uv;
+			int boneIDs[MAX_BONE_INFLUENCE];
+			float weights[MAX_BONE_INFLUENCE];
+		} mesh;
 
-	int boneIDs[MAX_BONE_INFLUENCE];
-	float weights[MAX_BONE_INFLUENCE];
+		struct
+		{
+			glm::vec3 position;
+			glm::vec4 color;
+		} line;
+	};
 };
 
 struct Bone
@@ -89,6 +99,40 @@ struct FrameBuffer
 	GLuint fbo;
 	GLuint rbo;
 	Texture texture;
+	int width;
+	int height;
+	bool initialised;
+};
+
+struct LineRenderer
+{
+	GLuint vertexBuffer;
+	GLuint vao;
+	std::vector<VertexData> vertices;
+	int maxSize;
+};
+
+struct Material
+{
+	int type;
+	union
+	{
+		struct {
+			Texture diffuseTexture;
+			Texture normalTexture;
+			Texture specularTexture;
+			Texture emissionTexture;
+			glm::vec3 ka;
+			glm::vec3 kd;
+			glm::vec3 ks;
+			glm::vec3 ke;
+			float specularPower;
+		} phong;
+
+		struct {
+			glm::vec3 color;
+		} color;
+	};
 };
 
 
@@ -340,44 +384,44 @@ static MeshData LoadMeshData(const aiScene* scene)
 	for (int i = 0; i < meshInfo->mNumVertices; i++)
 	{
 		VertexData newVertex = {};
-		newVertex.position = { meshInfo->mVertices[i].x, meshInfo->mVertices[i].y, meshInfo->mVertices[i].z };
+		newVertex.mesh.position = { meshInfo->mVertices[i].x, meshInfo->mVertices[i].y, meshInfo->mVertices[i].z };
 
 		if (meshInfo->HasVertexColors(0))
 		{
-			newVertex.color = { meshInfo->mColors[0][i].r, meshInfo->mColors[0][i].g, meshInfo->mColors[0][i].b, meshInfo->mColors[0][i].a };
+			newVertex.mesh.color = { meshInfo->mColors[0][i].r, meshInfo->mColors[0][i].g, meshInfo->mColors[0][i].b, meshInfo->mColors[0][i].a };
 		}
 		else
 		{
-			newVertex.color = { 1, 1, 1, 1 };
+			newVertex.mesh.color = { 1, 1, 1, 1 };
 		}
 
 		if (meshInfo->HasTextureCoords(0))
 		{
-			newVertex.uv = { meshInfo->mTextureCoords[0][i].x, meshInfo->mTextureCoords[0][i].y };
+			newVertex.mesh.uv = { meshInfo->mTextureCoords[0][i].x, meshInfo->mTextureCoords[0][i].y };
 		}
 		else
 		{
-			newVertex.uv = { newVertex.position.x, newVertex.position.y };
+			newVertex.mesh.uv = { newVertex.mesh.position.x, newVertex.mesh.position.y };
 		}
 
 		if (meshInfo->HasNormals())
 		{
-			newVertex.normal = { meshInfo->mNormals[i].x, meshInfo->mNormals[i].y, meshInfo->mNormals[i].z };
+			newVertex.mesh.normal = { meshInfo->mNormals[i].x, meshInfo->mNormals[i].y, meshInfo->mNormals[i].z };
 		}
 		else
 		{
-			newVertex.normal = { 0, 0, 0 };
+			newVertex.mesh.normal = { 0, 0, 0 };
 		}
 
 		if (meshInfo->HasTangentsAndBitangents())
 		{
-			newVertex.vertTangent = { meshInfo->mTangents[i].x, meshInfo->mTangents[i].y, meshInfo->mTangents[i].z };
-			newVertex.vertBitangent = { meshInfo->mBitangents[i].x, meshInfo->mBitangents[i].y, meshInfo->mBitangents[i].z };
+			newVertex.mesh.vertTangent = { meshInfo->mTangents[i].x, meshInfo->mTangents[i].y, meshInfo->mTangents[i].z };
+			newVertex.mesh.vertBitangent = { meshInfo->mBitangents[i].x, meshInfo->mBitangents[i].y, meshInfo->mBitangents[i].z };
 		}
 		else
 		{
-			newVertex.vertTangent = { 0, 0, 0 };
-			newVertex.vertBitangent = { 0, 0, 0 };
+			newVertex.mesh.vertTangent = { 0, 0, 0 };
+			newVertex.mesh.vertBitangent = { 0, 0, 0 };
 		}
 		
 		meshData.vertices.push_back(newVertex);
@@ -418,20 +462,20 @@ static MeshData LoadMeshData(const aiScene* scene, Bone& skeleton, int& boneCoun
 			switch (boneCounts[id])
 			{
 			case 0:
-				meshData.vertices[id].boneIDs[0] = i;
-				meshData.vertices[id].weights[0] = weight;
+				meshData.vertices[id].mesh.boneIDs[0] = i;
+				meshData.vertices[id].mesh.weights[0] = weight;
 				break;
 			case 1:
-				meshData.vertices[id].boneIDs[1] = i;
-				meshData.vertices[id].weights[1] = weight;
+				meshData.vertices[id].mesh.boneIDs[1] = i;
+				meshData.vertices[id].mesh.weights[1] = weight;
 				break;
 			case 2:
-				meshData.vertices[id].boneIDs[2] = i;
-				meshData.vertices[id].weights[2] = weight;
+				meshData.vertices[id].mesh.boneIDs[2] = i;
+				meshData.vertices[id].mesh.weights[2] = weight;
 				break;
 			case 3:
-				meshData.vertices[id].boneIDs[3] = i;
-				meshData.vertices[id].weights[3] = weight;
+				meshData.vertices[id].mesh.boneIDs[3] = i;
+				meshData.vertices[id].mesh.weights[3] = weight;
 				break;
 			default:
 				break;
@@ -545,11 +589,6 @@ static void GetPose(Animation& animation, Bone& skeleton, float dt, glm::mat4& p
 	}
 }
 
-static float GetAnimationEndTime(Animation& animation)
-{
-	//animati
-}
-
 static void InitMesh(Mesh* mesh, MeshData* meshData)
 {
 	unsigned int indexCount = meshData->indices.size();
@@ -579,22 +618,22 @@ static void InitMesh(Mesh* mesh, MeshData* meshData)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mesh->indexBuffer);
 	glBindBuffer(GL_ARRAY_BUFFER, mesh->vertexBuffer);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::position));
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.position));
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::normal));
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.normal));
 	glEnableVertexAttribArray(2);
-	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::vertTangent));
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.vertTangent));
 	glEnableVertexAttribArray(3);
-	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::vertBitangent));
+	glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.vertBitangent));
 	glEnableVertexAttribArray(4);
-	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::color));
+	glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.color));
 	glEnableVertexAttribArray(5);
-	glVertexAttribPointer(5, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::uv));
+	glVertexAttribPointer(5, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.uv));
 	
 	glEnableVertexAttribArray(6);
-	glVertexAttribPointer(6, 4, GL_FLOAT, GL_INT, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::boneIDs));
+	glVertexAttribPointer(6, 4, GL_FLOAT, GL_INT, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.boneIDs));
 	glEnableVertexAttribArray(7);
-	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::weights));
+	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.weights));
 	
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -608,6 +647,57 @@ static void DrawMesh(Mesh* mesh)
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+static void InitLineRenderer(LineRenderer* lineRenderer) {
+	glGenBuffers(1, &lineRenderer->vertexBuffer);
+	glGenVertexArrays(1, &lineRenderer->vao);
+
+	glBindVertexArray(lineRenderer->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, lineRenderer->vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, lineRenderer->maxSize * sizeof(VertexData), nullptr, GL_DYNAMIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::line.position));
+	glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::line.color));
+
+	glEnableVertexAttribArray(0);
+	glEnableVertexAttribArray(1);
+
+	// Unbind
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+static void ClearRenderer(LineRenderer* lineRenderer)
+{
+	lineRenderer->vertices.clear();
+}
+
+static void Render(LineRenderer* lineRenderer) {
+	if (lineRenderer->vertices.size() == 0) return;
+	glBindVertexArray(lineRenderer->vao);
+	glDrawArrays(GL_LINES, 0, lineRenderer->vertices.size());
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+}
+
+static void AddLine(LineRenderer* lineRenderer, glm::vec3 p1, glm::vec3 p2, glm::vec4 color)
+{
+	if (lineRenderer->vertices.size() >= lineRenderer->maxSize)
+	{
+		Render(lineRenderer);
+		ClearRenderer(lineRenderer);
+	}
+	VertexData v1 = {};
+	v1.line.position = p1;
+	v1.line.color = color;
+
+	VertexData v2 = {};
+	v2.line.position = p2;
+	v2.line.color = color;
+
+	lineRenderer->vertices.push_back(v1);
+	lineRenderer->vertices.push_back(v2);
 }
 
 // Camera
@@ -647,9 +737,19 @@ static void HandleCameraController(Camera* camera, Input* input, Input* lastInpu
 // Frame Buffer
 static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
 {
+	if (frameBuffer->initialised)
+	{
+		glDeleteFramebuffers(1, &frameBuffer->fbo);
+		glDeleteRenderbuffers(1, &frameBuffer->rbo);
+		glDeleteTextures(1, &frameBuffer->texture.id);
+		frameBuffer->initialised = false;
+	}
+
 	glGenFramebuffers(1, &frameBuffer->fbo);
 	glGenTextures(1, &frameBuffer->texture.id);
 	glGenRenderbuffers(1, &frameBuffer->rbo);
+	frameBuffer->width = width;
+	frameBuffer->height = height;
 
 	glBindTexture(GL_TEXTURE_2D, frameBuffer->texture.id);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
@@ -669,12 +769,14 @@ static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height)
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE)
 	{
 		std::cout << "Frame buffer initialised successfully" << std::endl;
+		frameBuffer->initialised = true;
 	}
 	else {
 		std::cout << "Failed to initialise frame buffer" << std::endl;
 		glDeleteFramebuffers(1, &frameBuffer->fbo);
 		glDeleteRenderbuffers(1, &frameBuffer->rbo);
 		glDeleteTextures(1, &frameBuffer->texture.id);
+		frameBuffer->initialised = false;
 	}
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -693,12 +795,16 @@ static void UnbindFrameBuffer()
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-static void DrawFrameBuffer(ShaderProgram* shaderProgram, Mesh* mesh, FrameBuffer* frameBuffer)
+static void DrawFrameBuffer(ShaderProgram* shaderProgram, Mesh* mesh, FrameBuffer* frameBuffer, float left, float top, float width, float height)
 {
 	glDisable(GL_DEPTH_TEST);
 	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	glUseProgram(shaderProgram->shaderProgram);
+	SetUniform(shaderProgram, "u_left", left);
+	SetUniform(shaderProgram, "u_top", top);
+	SetUniform(shaderProgram, "u_width", width);
+	SetUniform(shaderProgram, "u_height", height);
 	BindTexture(&frameBuffer->texture, 0);
 	DrawMesh(mesh);
 	UnbindTexture();
@@ -706,16 +812,14 @@ static void DrawFrameBuffer(ShaderProgram* shaderProgram, Mesh* mesh, FrameBuffe
 
 static void SaveImage(std::string path, GLFWwindow* window, FrameBuffer* fb)
 {
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);
 	GLsizei nrChannels = 4;
-	GLsizei stride = nrChannels * width;
-	GLsizei bufferSize = stride * height;
+	GLsizei stride = nrChannels * fb->width;
+	GLsizei bufferSize = stride * fb->width;
 	std::vector<char> buffer(bufferSize);
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glNamedFramebufferReadBuffer(fb->fbo, GL_FRONT);
-	glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer.data());
-	stbi_flip_vertically_on_write(true);
-	stbi_write_png(path.c_str(), width, height, nrChannels, buffer.data(), stride);
-}
 
+	glReadPixels(0, 0, fb->width, fb->height, GL_RGBA, GL_UNSIGNED_BYTE, buffer.data());
+	stbi_flip_vertically_on_write(true);
+	stbi_write_png(path.c_str(), fb->width, fb->height, nrChannels, buffer.data(), stride);
+}

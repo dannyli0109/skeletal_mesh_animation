@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <filesystem>
 #include <vector>
 #include <unordered_map>
 #include "Graphics.h"
@@ -10,6 +11,8 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
+#define STB_IMAGE_STATIC
+#define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #define STB_IMAGE_WRITE_STATIC
 #define STB_IMAGE_WRITE_IMPLEMENTATION
@@ -23,7 +26,6 @@
 #include "SceneManager.h"
 #include "GUI.h"
 
-
 class ProgramManager
 {
 public:
@@ -33,12 +35,15 @@ public:
 	void Destroy();
 
 private:
-	GLFWwindow* window;
+	Window window;
+	// GLFWwindow* window;
 	ResourceManager resourceManager;
 	Scene scene;
 	Input input;
 	Input lastInput;
 	float dt;
-	int currentFrame = 0;
+	int frames = 0;
+	int outputWidth = 0;
+	int outputHeight = 0;
 };
 

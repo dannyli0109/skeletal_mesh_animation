@@ -1,6 +1,4 @@
 #pragma once
-#include <vector>
-
 struct Meshes
 {
 	Mesh soulSpear;
@@ -43,6 +41,8 @@ struct FrameBuffers
 	FrameBuffer output;
 };
 
+
+
 struct ResourceManager
 {
 	Meshes meshes;
@@ -51,4 +51,13 @@ struct ResourceManager
 	Animations animations;
 	Skeletons skeletons;
 	FrameBuffers frameBuffers;
+	LineRenderer lineRenderer;
 };
+
+static void OnWindowResize(GLFWwindow* window, int width, int height)
+{
+	Window* windowData = (Window*)glfwGetWindowUserPointer(window);
+	windowData->width = width;
+	windowData->height = height;
+	windowData->shouldUpdate = true;
+}
