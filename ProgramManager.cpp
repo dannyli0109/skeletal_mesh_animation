@@ -98,11 +98,6 @@ void ProgramManager::Update()
         // begin imgui window
         ImGui::Begin("Imgui window");
 
-        std::stringstream ss;
-        ss << "FovX: ";
-        ss << glm::degrees(2 * atan(tanf(scene.camera.fovY * 0.5f) * scene.camera.aspect));
-        ImGui::Text(ss.str().c_str());
-
         ImGui::DragFloat3("Camera Position", &scene.camera.position[0], 0.1f);
 
         ImGui::InputInt("Width", &outputWidth);
@@ -124,6 +119,7 @@ void ProgramManager::Update()
             float zX = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
             float zY = (h / 2.0f) / tanf(fovY / 2.0f) + depth / 2.0f;
             scene.camera.position.z = fmaxf(zX, zY);
+            scene.camera.far = scene.camera.position.z + depth / 2.0f;
         }
 
         if (ImGui::Button("Capture") && frames > 0 && outputWidth > 0 && outputHeight > 0)
@@ -150,6 +146,7 @@ void ProgramManager::Update()
                 float zX = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
                 float zY = (h / 2.0f) / tanf(fovY / 2.0f) + depth / 2.0f;
                 scene.camera.position.z = fmaxf(zX, zY);
+                scene.camera.far = scene.camera.position.z + depth / 2.0f;
             }
 
             for (int j = 0; j < 1; j++)
