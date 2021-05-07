@@ -116,12 +116,14 @@ void ProgramManager::Update()
             scene.camera.position.x = (min.x + max.x) / 2.0f;
             scene.camera.position.y = (min.y + max.y) / 2.0f;
 
-            //2 * atan(tan(fieldOfViewY * 0.5) * aspect)
-            float fovX = 2 * atan(tanf(scene.camera.fovY * 0.5f) * scene.camera.aspect);
+            float fovY = scene.camera.fovY;
+            float fovX = 2 * atan(tanf(fovY * 0.5f) * scene.camera.aspect);
             float w = max.x - min.x;
+            float h = max.y - min.y;
             float depth = max.z - min.z;
-            scene.camera.position.z = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
-
+            float zX = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
+            float zY = (h / 2.0f) / tanf(fovY / 2.0f) + depth / 2.0f;
+            scene.camera.position.z = fmaxf(zX, zY);
         }
 
         if (ImGui::Button("Capture") && frames > 0 && outputWidth > 0 && outputHeight > 0)
@@ -132,6 +134,23 @@ void ProgramManager::Update()
             InitFrameBuffer(&resource.frameBuffers.output, outputWidth, outputHeight);
             scene.camera.aspect = (float)outputWidth / (float)outputHeight;
             window.shouldUpdate = true;
+
+            {
+                std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, frames);
+                min = volume.first;
+                max = volume.second;
+                scene.camera.position.x = (min.x + max.x) / 2.0f;
+                scene.camera.position.y = (min.y + max.y) / 2.0f;
+
+                float fovY = scene.camera.fovY;
+                float fovX = 2 * atan(tanf(fovY * 0.5f) * scene.camera.aspect);
+                float w = max.x - min.x;
+                float h = max.y - min.y;
+                float depth = max.z - min.z;
+                float zX = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
+                float zY = (h / 2.0f) / tanf(fovY / 2.0f) + depth / 2.0f;
+                scene.camera.position.z = fmaxf(zX, zY);
+            }
 
             for (int j = 0; j < 1; j++)
             {
@@ -144,7 +163,7 @@ void ProgramManager::Update()
                     RenderLigths(&resource.shaders.color, resource, scene);
 
                     {
-                        ClearRenderer(&resource.lineRenderer);
+                        /*ClearRenderer(&resource.lineRenderer);
                         glUseProgram(resource.shaders.line.shaderProgram);
                         UpdateCamera(&resource.shaders.line, scene.camera);
 
@@ -167,9 +186,8 @@ void ProgramManager::Update()
                         AddLine(&resource.lineRenderer, { max.x, min.y, min.z }, { max.x, min.y, max.z }, { 1, 0, 0, 1 });
                         AddLine(&resource.lineRenderer, { max.x, min.y, max.z }, { max.x, max.y, max.z }, { 1, 0, 0, 1 });
                         Render(&resource.lineRenderer);
-                        glUseProgram(0);
+                        glUseProgram(0);*/
                     }
-
 
                     UnbindFrameBuffer();
                     // draw frame buffer to screen
