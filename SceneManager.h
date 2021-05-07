@@ -39,6 +39,53 @@ static void AddPointLight(Scene* scene, glm::vec3 lightPosition, glm::vec3 light
 	scene->pointLights.count++;
 }
 
+static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, Animation* animation, int frames)
+{
+	float frameTime = 0;
+	float timeIncrement = animation->duration / frames;
+
+	float minX = FLT_MAX;
+	float maxX = FLT_MIN;
+
+	float minY = FLT_MAX;
+	float maxY = FLT_MIN;
+
+	float minZ = FLT_MAX;
+	float maxZ = FLT_MIN;
+
+	for (int i = 0; i < frames; i++)
+	{
+		glm::mat4 parentTransform(1.0f);
+		GetPose(*animation, animation->skeleton, frameTime, parentTransform);
+		std::vector<glm::mat4> boneTransforms = animation->currentPose;
+		for (int j = 0; j < mesh->vertices.size(); j++)
+		{
+			VertexData vertex = mesh->vertices[j];
+			glm::mat4 boneTransform = glm::mat4(0.0f);
+			for (int k = 0; k < 4; k++)
+			{
+				boneTransform += boneTransforms[vertex.mesh.boneIDs[k]] * vertex.mesh.weights[k];
+			}
+
+			if (vertex.mesh.weights[0] == 0)
+			{
+				boneTransform = glm::mat4(1.0f);
+			}
+
+			glm::vec4 pos = boneTransform * glm::vec4(vertex.mesh.position, 1.0f);
+			glm::vec4 finalPos = pos;
+			if (finalPos.x > maxX) maxX = finalPos.x;
+			if (finalPos.x < minX) minX = finalPos.x;
+			if (finalPos.y > maxY) maxY = finalPos.y;
+			if (finalPos.y < minY) minY = finalPos.y;
+			if (finalPos.z > maxZ) maxZ = finalPos.z;
+			if (finalPos.z < minZ) minZ = finalPos.z;
+		}
+		frameTime += timeIncrement;
+	}
+	return { {minX, minY, minZ}, {maxX, maxY, maxZ} };
+}
+
 static void AddModel(
 	Scene* scene, Mesh mesh, glm::mat4 transform,
 	Material material,
@@ -50,6 +97,8 @@ static void AddModel(
 	scene->models.materials.push_back(material);
 	scene->models.animations.push_back(animation);
 	scene->models.count++;
+
+
 }
 
 static void UpdatePointLights(ShaderProgram* shaderProgram, PointLights& pointLights)
@@ -102,7 +151,6 @@ static void UpdateMaterial(ShaderProgram* shaderProgram, Material& material)
 
 static void UpdateModels(ShaderProgram* shaderProgram, Models& models, float elapsedTime)
 {
-	glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 0.01f, 0.01f, 0.01f });
 	for (int i = 0; i < models.count; i++)
 	{
 		UpdateMaterial(shaderProgram, models.materials[i]);
@@ -136,7 +184,7 @@ static void RenderModels(ShaderProgram* shaderProgram, Models& models)
 	}
 }
 
-static void RenderLigths(ShaderProgram* shaderProgram, ResourceManager& resourceManager, Scene& scene)
+static void RenderLigths(ShaderProgram* shaderProgram, Resource& resourceManager, Scene& scene)
 {
 	glUseProgram(shaderProgram->shaderProgram);
 	glm::mat4 projectionMatrix = GetProjectionMatrix(&scene.camera);
@@ -154,5 +202,45 @@ static void RenderLigths(ShaderProgram* shaderProgram, ResourceManager& resource
 		glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), scene.pointLights.positions[i]);
 		SetUniform(shaderProgram, "u_modelMatrix", modelMatrix);
 		DrawMesh(&resourceManager.meshes.sphere);
+	}
+}
+
+static void InitScene(Scene* scene, Resource* resource, Window* window)
+{
+	{
+		Camera camera = {};
+		camera.position = { 0, 10000.0f, 30000.0f };
+		camera.up = { 0, 1.0f, 0 };
+		camera.theta = glm::radians(270.0f);
+		camera.phi = glm::radians(0.0f);
+
+		camera.fovY = glm::radians(45.0f);
+		camera.aspect = (float)window->width / (float)window->height;
+		camera.near = 1.0f;
+		camera.far = 100000.0f;
+		scene->camera = camera;
+	}
+
+	{
+		glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });
+		AddModel(scene, resource->meshes.vampire, modelMatrix,
+			resource->materials.vampirePhongMaterial,
+			resource->animations.vampireAnimation
+		);
+
+	}
+
+	{
+		AmbientLight ambientLight = {};
+		ambientLight.color = { 1.0f, 1.0f, 1.0f };
+		ambientLight.intensity = 1.0f;
+		scene->ambientLight = ambientLight;
+	}
+
+	{
+		glm::vec3 lightPosition = { 0.0f, 100.0f, 100.0f };
+		glm::vec3 lightColor = { 1.0f, 1.0f, 1.0f };
+		float lightIntensity = 5000.0f;
+		//AddPointLight(&scene, lightPosition, lightColor, lightIntensity);
 	}
 }

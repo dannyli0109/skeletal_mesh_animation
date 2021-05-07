@@ -3,8 +3,10 @@
 int main(void)
 {
     ProgramManager programManager;
-    programManager.Init();
-    programManager.Update();
+    if (programManager.Init())
+    {
+        programManager.Update();
+    }
     programManager.Destroy();
     return 0;
 }

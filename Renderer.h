@@ -12,14 +12,6 @@ struct Texture
 	GLuint id;
 };
 
-struct Mesh
-{
-	GLuint vertexBuffer;
-	GLuint indexBuffer;
-	GLuint vao;
-	unsigned int indexCount;
-};
-
 struct VertexData
 {
 	union
@@ -41,6 +33,16 @@ struct VertexData
 			glm::vec4 color;
 		} line;
 	};
+};
+
+
+struct Mesh
+{
+	GLuint vertexBuffer;
+	GLuint indexBuffer;
+	GLuint vao;
+	std::vector<VertexData> vertices;
+	unsigned int indexCount;
 };
 
 struct Bone
@@ -489,7 +491,7 @@ static MeshData LoadMeshData(const aiScene* scene, Bone& skeleton, int& boneCoun
 	return meshData;
 }
 
-static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* meshData, Bone& skeleton, int& boneCount)
+static std::vector<Animation> LoadAnimations(const aiScene* scene, Bone& skeleton, int& boneCount)
 {
 	std::vector<Animation> animations;
 	aiAnimation** animationInfos = scene->mAnimations;
@@ -530,7 +532,6 @@ static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* mes
 		}
 		animations.push_back(animation);
 	}
-	int i = 0;
 	return animations;
 }
 
@@ -598,6 +599,7 @@ static void InitMesh(Mesh* mesh, MeshData* meshData)
 
 	*mesh = {};
 	mesh->indexCount = indexCount;
+	mesh->vertices = meshData->vertices;
 
 	// generate buffers
 	glGenBuffers(1, &mesh->vertexBuffer);
@@ -649,7 +651,8 @@ static void DrawMesh(Mesh* mesh)
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
-static void InitLineRenderer(LineRenderer* lineRenderer) {
+static void InitLineRenderer(LineRenderer* lineRenderer, int maxSize) {
+	lineRenderer->maxSize = maxSize;
 	glGenBuffers(1, &lineRenderer->vertexBuffer);
 	glGenVertexArrays(1, &lineRenderer->vao);
 
@@ -675,6 +678,8 @@ static void ClearRenderer(LineRenderer* lineRenderer)
 
 static void Render(LineRenderer* lineRenderer) {
 	if (lineRenderer->vertices.size() == 0) return;
+	glBindBuffer(GL_ARRAY_BUFFER, lineRenderer->vertexBuffer);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, lineRenderer->vertices.size() * sizeof(VertexData), lineRenderer->vertices.data());
 	glBindVertexArray(lineRenderer->vao);
 	glDrawArrays(GL_LINES, 0, lineRenderer->vertices.size());
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

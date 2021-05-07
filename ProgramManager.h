@@ -37,7 +37,7 @@ public:
 private:
 	Window window;
 	// GLFWwindow* window;
-	ResourceManager resourceManager;
+	Resource resource;
 	Scene scene;
 	Input input;
 	Input lastInput;
@@ -45,5 +45,7 @@ private:
 	int frames = 0;
 	int outputWidth = 0;
 	int outputHeight = 0;
+	glm::vec3 min;
+	glm::vec3 max;
 };
 
