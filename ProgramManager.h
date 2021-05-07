@@ -25,6 +25,7 @@
 #include "ResourceManager.h"
 #include "SceneManager.h"
 #include "GUI.h"
+#include "lib/ImGuiFileDialog/ImGuiFileDialog.h"
 
 class ProgramManager
 {
@@ -33,6 +34,10 @@ public:
 	int Init();
 	void Update();
 	void Destroy();
+
+private:
+	void CaptureAnimationFrames();
+	void RenderBoundingVolume();
 
 private:
 	Window window;

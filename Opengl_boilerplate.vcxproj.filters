@@ -16,6 +16,9 @@
     <Filter Include="Core">
       <UniqueIdentifier>{8992e4e4-54ed-4f4f-82cb-e24da654f78d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="libs\ImGuiFileDialog">
+      <UniqueIdentifier>{e5a67cfa-65e1-4fb3-9a71-2daac86b97f1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lib\imgui\imgui.cpp">
@@ -47,6 +50,9 @@
     </ClCompile>
     <ClCompile Include="src\EntryPoint.cpp">
       <Filter>Core</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\ImGuiFileDialog\ImGuiFileDialog.cpp">
+      <Filter>libs\ImGuiFileDialog</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -113,5 +119,19 @@
     <ClInclude Include="InputManager.h">
       <Filter>Core</Filter>
     </ClInclude>
+    <ClInclude Include="lib\ImGuiFileDialog\ImGuiFileDialog.h">
+      <Filter>libs\ImGuiFileDialog</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\ImGuiFileDialog\ImGuiFileDialogConfig.h">
+      <Filter>libs\ImGuiFileDialog</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="lib\ImGuiFileDialog\LICENSE">
+      <Filter>libs\ImGuiFileDialog</Filter>
+    </None>
+    <None Include="lib\ImGuiFileDialog\README.md">
+      <Filter>libs\ImGuiFileDialog</Filter>
+    </None>
   </ItemGroup>
 </Project>
