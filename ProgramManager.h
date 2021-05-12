@@ -38,6 +38,10 @@ public:
 private:
 	void CaptureAnimationFrames();
 	void RenderBoundingVolume();
+	void RenderSceneWindow();
+	void RenderSpriteWindow();
+	void RenderSidePannel();
+	void SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> volume);
 
 private:
 	Window window;
@@ -52,5 +56,8 @@ private:
 	int outputHeight = 0;
 	glm::vec3 min;
 	glm::vec3 max;
+	float elapsedTime;
+	int msaa = 4;
+
 };
 

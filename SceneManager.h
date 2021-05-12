@@ -87,7 +87,8 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 }
 
 static void AddModel(
-	Scene* scene, Mesh mesh, glm::mat4 transform,
+	Scene* scene, Mesh mesh, 
+	glm::mat4 transform,
 	Material material,
 	Animation animation
 )
@@ -227,7 +228,6 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 			resource->materials.vampirePhongMaterial,
 			resource->animations.vampireAnimation
 		);
-
 	}
 
 	{

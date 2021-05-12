@@ -39,6 +39,7 @@ struct Textures
 
 struct FrameBuffers
 {
+	FrameBuffer msaa;
 	FrameBuffer output;
 };
 
@@ -47,6 +48,15 @@ struct Materials
 	Material vampirePhongMaterial;
 };
 
+struct SpriteAnimations
+{
+	std::vector<std::vector<Texture>> textures;
+	std::vector<int> widths;
+	std::vector<int> heights;
+	std::vector<int> currentFrames;
+	std::vector<float> durations;
+	int count;
+};
 
 struct Resource
 {
@@ -59,6 +69,7 @@ struct Resource
 	Materials materials;
 	LineRenderer lineRenderer;
 	Window window;
+	SpriteAnimations spriteAnimations;
 };
 
 static void InitResources(Resource* resource, Window* window)
@@ -94,9 +105,16 @@ static void InitResources(Resource* resource, Window* window)
 
 	{
         FrameBuffer fb = {};
-        InitFrameBuffer(&fb, window->width, window->height);
-        resource->frameBuffers.output = fb;
+        InitFrameBuffer(&fb, window->width, window->height, 4);
+        resource->frameBuffers.msaa = fb;
     }
+
+	{
+		FrameBuffer fb = {};
+		InitFrameBuffer(&fb, window->width, window->height);
+		resource->frameBuffers.output = fb;
+	}
+
 
 	{
 		LineRenderer lineRenderer = {};
@@ -194,6 +212,17 @@ static void InitResources(Resource* resource, Window* window)
 		InitMesh(&quadMesh, &quadMeshData);
 		resource->meshes.quad = quadMesh;
 	}
+	resource->spriteAnimations = {};
+}
+
+static void AddSpriteAnimation(SpriteAnimations* spriteAnimations, std::vector<Texture> textures, int width, int height, float duration)
+{
+	spriteAnimations->textures.push_back(textures);
+	spriteAnimations->widths.push_back(width);
+	spriteAnimations->heights.push_back(height);
+	spriteAnimations->currentFrames.push_back(0);
+	spriteAnimations->durations.push_back(duration);
+	spriteAnimations->count++;
 }
 
 static void OnWindowResize(GLFWwindow* window, int width, int height)
