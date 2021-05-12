@@ -11,7 +11,10 @@ struct PointLights
 struct Models
 {
 	std::vector<Mesh> meshes;
-	std::vector<glm::mat4> transforms;
+	std::vector<glm::vec3> positions;
+	std::vector<glm::vec3> rotations;
+	std::vector<glm::vec3> scales;
+	//std::vector<glm::mat4> transforms;
 	std::vector<Material> materials;
 	std::vector<Animation> animations;
 	int count;
@@ -39,7 +42,7 @@ static void AddPointLight(Scene* scene, glm::vec3 lightPosition, glm::vec3 light
 	scene->pointLights.count++;
 }
 
-static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, Animation* animation, int frames)
+static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, Animation* animation, glm::mat4 modelMatrix, int frames)
 {
 	float frameTime = 0;
 	float timeIncrement = animation->duration / frames;
@@ -73,7 +76,7 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 			}
 
 			glm::vec4 pos = boneTransform * glm::vec4(vertex.mesh.position, 1.0f);
-			glm::vec4 finalPos = pos;
+			glm::vec4 finalPos = modelMatrix * pos;
 			if (finalPos.x > maxX) maxX = finalPos.x;
 			if (finalPos.x < minX) minX = finalPos.x;
 			if (finalPos.y > maxY) maxY = finalPos.y;
@@ -87,19 +90,40 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 }
 
 static void AddModel(
-	Scene* scene, Mesh mesh, 
-	glm::mat4 transform,
+	Scene* scene,
+	Mesh mesh,
+	//glm::mat4 transform,
+	glm::vec3 position,
+	glm::vec3 rotation,
+	glm::vec3 scale,
 	Material material,
 	Animation animation
 )
 {
 	scene->models.meshes.push_back(mesh);
-	scene->models.transforms.push_back(transform);
+	//scene->models.transforms.push_back(transform);
+	scene->models.positions.push_back(position);
+	scene->models.rotations.push_back(rotation);
+	scene->models.scales.push_back(scale);
+
 	scene->models.materials.push_back(material);
 	scene->models.animations.push_back(animation);
 	scene->models.count++;
 
 
+}
+
+static glm::mat4 GetModelMatrix(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
+{
+	glm::mat4 modelMatrix(1.0f);
+	modelMatrix = glm::scale(modelMatrix, scale);
+
+	modelMatrix = glm::rotate(modelMatrix, rotation.z, glm::vec3(0, 0, 1));
+	modelMatrix = glm::rotate(modelMatrix, rotation.x, glm::vec3(1, 0, 0));
+	modelMatrix = glm::rotate(modelMatrix, rotation.y, glm::vec3(0, 1, 0));
+
+	modelMatrix = glm::translate(modelMatrix, position);
+	return modelMatrix;
 }
 
 static void UpdatePointLights(ShaderProgram* shaderProgram, PointLights& pointLights)
@@ -155,7 +179,8 @@ static void UpdateModels(ShaderProgram* shaderProgram, Models& models, float ela
 	for (int i = 0; i < models.count; i++)
 	{
 		UpdateMaterial(shaderProgram, models.materials[i]);
-		SetUniform(shaderProgram, "u_modelMatrix", models.transforms[i]);
+		glm::mat4 modelMatrix = GetModelMatrix(models.positions[i], models.rotations[i], models.scales[i]);
+		SetUniform(shaderProgram, "u_modelMatrix", modelMatrix);
 		glm::mat4 parentTransform(1.0f);
 		GetPose(models.animations[i], models.animations[i].skeleton, elapsedTime, parentTransform);
 		SetUniform(shaderProgram, "u_boneTransforms", models.animations[i].currentPose[0], models.animations[i].currentPose.size());
@@ -223,8 +248,12 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 	}
 
 	{
-		glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });
-		AddModel(scene, resource->meshes.vampire, modelMatrix,
+		/*glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });*/
+		glm::vec3 position = { 0, 0, 0 };
+		glm::vec3 rotation = { 0, 0, 0 };
+		glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+		AddModel(scene, resource->meshes.vampire, 
+			position, rotation, scale,
 			resource->materials.vampirePhongMaterial,
 			resource->animations.vampireAnimation
 		);

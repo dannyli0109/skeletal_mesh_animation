@@ -81,7 +81,8 @@ void ProgramManager::CaptureAnimationFrames()
     window.shouldUpdate = true;
 
     {
-        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, frames);
+        glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[0], scene.models.rotations[0], scene.models.scales[0]);
+        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, modelMatrix, frames);
         SnapCameraToBoundingVolume(volume);
     }
 
@@ -128,9 +129,10 @@ void ProgramManager::RenderBoundingVolume()
     glUseProgram(resource.shaders.line.shaderProgram);
     UpdateCamera(&resource.shaders.line, scene.camera);
 
-    AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { max.x, min.y, min.z }, { 1, 0, 0, 1 });
-    AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { min.x, max.y, min.z }, { 1, 0, 0, 1 });
-    AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { min.x, min.y, max.z }, { 1, 0, 0, 1 });
+    AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { max.x, min.y, min.z }, { 1, 1, 0, 1 });
+    AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { min.x, max.y, min.z }, { 1, 0, 1, 1 });
+    AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { min.x, min.y, max.z }, { 0, 1, 1, 1 });
+
     AddLine(&resource.lineRenderer, { min.x, min.y, max.z }, { min.x, max.y, max.z }, { 1, 0, 0, 1 });
 
     AddLine(&resource.lineRenderer, { min.x, max.y, min.z }, { max.x, max.y, min.z }, { 1, 0, 0, 1 });
@@ -247,12 +249,25 @@ void ProgramManager::RenderSidePannel()
     ImGui::DragFloat("Camera Near Plane", &scene.camera.near, 0.1f);
     ImGui::DragFloat("Camera Far Plane", &scene.camera.far, 1.0f);
 
+    ImGui::Spacing();
+    glm::vec3 rot = glm::degrees(scene.models.rotations[0]);
+    ImGui::DragFloat3("Rotation", &rot[0], 0.1f);
+    scene.models.rotations[0] = glm::radians(rot);
+
+   
+    ImGui::InputFloat3("bounding min", &min.x);
+    ImGui::InputFloat3("bounding max", &max.x);
+    glm::vec3 diff = max - min;
+    ImGui::InputFloat3("diff", &diff.x);
+    //ImGui::DragFloat3()
+
     ImGui::InputInt("Width", &outputWidth);
     ImGui::InputInt("Height", &outputHeight);
     ImGui::InputInt("Frames", &frames);
     if (ImGui::Button("Generate bounding volume") && frames > 0)
     {
-        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, frames);
+        glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[0], scene.models.rotations[0], scene.models.scales[0]);
+        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, modelMatrix, frames);
         SnapCameraToBoundingVolume(volume);
     }
 
@@ -278,6 +293,7 @@ void ProgramManager::SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> 
     float zX = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
     float zY = (h / 2.0f) / tanf(fovY / 2.0f) + depth / 2.0f;
     scene.camera.position.z = fmaxf(zX, zY);
+
     scene.camera.near = scene.camera.position.z - depth / 2.0f;
     scene.camera.far = scene.camera.position.z + depth / 2.0f;
 }
