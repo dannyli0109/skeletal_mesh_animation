@@ -10,12 +10,13 @@ struct PointLights
 
 struct Models
 {
-	std::vector<Mesh> meshes;
+	std::vector<std::string> names;
+	std::vector<Mesh*> meshes;
 	std::vector<glm::vec3> positions;
 	std::vector<glm::vec3> rotations;
 	std::vector<glm::vec3> scales;
 	//std::vector<glm::mat4> transforms;
-	std::vector<Material> materials;
+	std::vector<Material*> materials;
 	std::vector<Animation> animations;
 	int count;
 };
@@ -32,6 +33,7 @@ struct Scene
 	Camera camera;
 	Models models;
 	AmbientLight ambientLight;
+	Camera2D camera2D;
 };
 
 static void AddPointLight(Scene* scene, glm::vec3 lightPosition, glm::vec3 lightColor, float lightIntenisty)
@@ -91,15 +93,17 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 
 static void AddModel(
 	Scene* scene,
-	Mesh mesh,
+	std::string name,
+	Mesh* mesh,
 	//glm::mat4 transform,
 	glm::vec3 position,
 	glm::vec3 rotation,
 	glm::vec3 scale,
-	Material material,
+	Material* material,
 	Animation animation
 )
 {
+	scene->models.names.push_back(name);
 	scene->models.meshes.push_back(mesh);
 	//scene->models.transforms.push_back(transform);
 	scene->models.positions.push_back(position);
@@ -146,27 +150,48 @@ static void UpdateCamera(ShaderProgram* shaderProgram, Camera& camera)
 	SetUniform(shaderProgram, "u_cameraPos", cameraPos);
 }
 
-static void UpdateMaterial(ShaderProgram* shaderProgram, Material& material)
+static void UpdateMaterial(Material* material)
 {
-	switch (material.type)
+	ShaderProgram* shaderProgram = material->shaderProgram;
+	switch (material->type)
 	{
 	case 0:
 	{
-		SetUniform(shaderProgram, "u_ka", material.phong.ka);
-		SetUniform(shaderProgram, "u_kd", material.phong.kd);
-		SetUniform(shaderProgram, "u_ks", material.phong.ks);
-		SetUniform(shaderProgram, "u_ke", material.phong.ke);
-		SetUniform(shaderProgram, "u_specularPower", material.phong.specularPower);
+		SetUniform(shaderProgram, "u_ka", material->phong.ka);
+		SetUniform(shaderProgram, "u_kd", material->phong.kd);
+		SetUniform(shaderProgram, "u_ks", material->phong.ks);
+		SetUniform(shaderProgram, "u_ke", material->phong.ke);
+		SetUniform(shaderProgram, "u_specularPower", material->phong.specularPower);
 
-		BindTexture(&material.phong.diffuseTexture, 0);
-		BindTexture(&material.phong.normalTexture, 1);
-		BindTexture(&material.phong.specularTexture, 2);
-		BindTexture(&material.phong.emissionTexture, 3);
+		BindTexture(material->phong.diffuseTexture, 0);
+		BindTexture(material->phong.normalTexture, 1);
+		BindTexture(material->phong.specularTexture, 2);
+		BindTexture(material->phong.emissionTexture, 3);
 		break;
 	}
 	case 1:
 	{
-		SetUniform(shaderProgram, "u_color", material.color.color);
+		SetUniform(shaderProgram, "u_color", material->color.color);
+		break;
+	}
+	case 2:
+	{
+		BindTexture(material->normal.texture, 0);
+		break;
+	}
+	case 3:
+	{
+		BindTexture(material->diffuse.texture, 0);
+		break;
+	}
+	case 4:
+	{
+		BindTexture(material->specular.texture, 0);
+		break;
+	}
+	case 5:
+	{
+		BindTexture(material->emission.texture, 0);
 		break;
 	}
 	default:
@@ -174,16 +199,17 @@ static void UpdateMaterial(ShaderProgram* shaderProgram, Material& material)
 	}
 }
 
-static void UpdateModels(ShaderProgram* shaderProgram, Models& models, float elapsedTime)
+static void UpdateModels(Models& models, float elapsedTime)
 {
 	for (int i = 0; i < models.count; i++)
 	{
-		UpdateMaterial(shaderProgram, models.materials[i]);
+		ShaderProgram* shader = models.materials[i]->shaderProgram;
+		UpdateMaterial(models.materials[i]);
 		glm::mat4 modelMatrix = GetModelMatrix(models.positions[i], models.rotations[i], models.scales[i]);
-		SetUniform(shaderProgram, "u_modelMatrix", modelMatrix);
+		SetUniform(shader, "u_modelMatrix", modelMatrix);
 		glm::mat4 parentTransform(1.0f);
 		GetPose(models.animations[i], models.animations[i].skeleton, elapsedTime, parentTransform);
-		SetUniform(shaderProgram, "u_boneTransforms", models.animations[i].currentPose[0], models.animations[i].currentPose.size());
+		SetUniform(shader, "u_boneTransforms", models.animations[i].currentPose[0], models.animations[i].currentPose.size());
 	}
 }
 
@@ -196,17 +222,17 @@ static void UpdateScene(ShaderProgram* shaderProgram, Scene& scene, float elapse
 {
 	UpdatePointLights(shaderProgram, scene.pointLights);
 	UpdateCamera(shaderProgram, scene.camera);
-	UpdateModels(shaderProgram, scene.models, elapsedTime);
+	//UpdateModels(scene.models, elapsedTime);
 	UpdateAmbientLight(shaderProgram, scene.ambientLight);
 }
 
 
-static void RenderModels(ShaderProgram* shaderProgram, Models& models)
+static void RenderModels(Models& models)
 {
-	glUseProgram(shaderProgram->shaderProgram);
 	for (int i = 0; i < models.count; i++)
 	{
-		DrawMesh(&models.meshes[i]);
+		glUseProgram(models.materials[i]->shaderProgram->shaderProgram);
+		DrawMesh(models.meshes[i]);
 	}
 }
 
@@ -224,10 +250,12 @@ static void RenderLigths(ShaderProgram* shaderProgram, Resource& resourceManager
 		Material material = {};
 		material.color.color = scene.pointLights.colors[i];
 		material.type = 1;
-		UpdateMaterial(shaderProgram, material);
+		material.shaderProgram = shaderProgram;
+		UpdateMaterial(&material);
 		glm::mat4 modelMatrix = glm::translate(glm::mat4(1.0f), scene.pointLights.positions[i]);
+		modelMatrix = glm::scale(modelMatrix, { 100, 100, 100 });
 		SetUniform(shaderProgram, "u_modelMatrix", modelMatrix);
-		DrawMesh(&resourceManager.meshes.sphere);
+		DrawMesh(&resourceManager.meshes[SPHERE_MESH]);
 	}
 }
 
@@ -248,13 +276,24 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 	}
 
 	{
+		Camera2D camera2D = {};
+		camera2D.position = { 0, 0 };
+		camera2D.windowSize = { 1280.0f, 720.0f };
+		camera2D.zoom = 72.0f;
+		camera2D.zoomSpeed = 5.0f;
+		scene->camera2D = camera2D;
+	}
+
+	{
 		/*glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });*/
 		glm::vec3 position = { 0, 0, 0 };
 		glm::vec3 rotation = { 0, 0, 0 };
 		glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
-		AddModel(scene, resource->meshes.vampire, 
+		AddModel(scene,
+			"Vampire",
+			&resource->meshes[VAMPIRE_MESH], 
 			position, rotation, scale,
-			resource->materials.vampirePhongMaterial,
+			&resource->materials[VAMPIRE_PHONG_MATERIAL],
 			resource->animations.vampireAnimation
 		);
 	}
@@ -267,9 +306,20 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 	}
 
 	{
-		glm::vec3 lightPosition = { 0.0f, 100.0f, 100.0f };
+		glm::vec3 lightPosition = { 0.0f, 10000.0f, 15000.0f };
 		glm::vec3 lightColor = { 1.0f, 1.0f, 1.0f };
-		float lightIntensity = 5000.0f;
-		//AddPointLight(&scene, lightPosition, lightColor, lightIntensity);
+		float lightIntensity = 50000000.0f;
+		//AddPointLight(scene, lightPosition, lightColor, lightIntensity);
 	}
 }
+
+
+static glm::mat4 GetCameraProjection(Camera2D* camera)
+{
+	return glm::ortho((-camera->windowSize.x / 2.0f + camera->position.x) / camera->zoom,
+		(camera->windowSize.x / 2.0f + camera->position.x) / camera->zoom,
+		(-camera->windowSize.y / 2.0f + camera->position.y) / camera->zoom,
+		(camera->windowSize.y / 2.0f + camera->position.y) / camera->zoom,
+		-1.0f, 1.0f);
+}
+

@@ -45,6 +45,7 @@ void main()
 	vec3 t = normalize(vec3(u_modelMatrix * vec4(a_tangent, 0.0)));
 	vec3 b = normalize(vec3(u_modelMatrix * vec4(a_bitangent, 0.0)));
 	vec3 n = normalize(vec3(u_modelMatrix * normal));
+	
 	v_tbn = mat3(
 		t, b, n
 	);

@@ -1,11 +1,29 @@
 #pragma once
-struct Meshes
-{
-	Mesh soulSpear;
-	Mesh vampire;
-	Mesh sphere;
-	Mesh quad;
-};
+
+#define COLOR_SHADER 0
+#define LINE_SHADER 1
+#define PHONG_SHADER 2
+#define OUTPUT_SHADER 3
+#define NORMAL_SHADER 4
+#define UNSHADED_SHADER 5
+#define TEXTURE_SHADER 6
+#define SPRITE_SHADER 7
+
+#define VAMPIRE_MESH 0
+#define SPHERE_MESH 1
+#define QUAD_MESH 2
+
+#define VAMPIRE_PHONG_MATERIAL 0
+
+#define VAMPIRE_DIFFUSE 0
+#define VAMPIRE_NORMAL 1
+#define VAMPIRE_SPECULAR 2
+#define VAMPIRE_EMISSION 3
+#define WHITE 4
+
+#define MSAA_FRAMEBUFFER 0
+#define OUTPUT_FRAMEBUFFER 1
+#define SPRITE_FRAMEBUFFER 2
 
 struct Skeletons
 {
@@ -17,35 +35,10 @@ struct Animations
 	Animation vampireAnimation;
 };
 
-struct ShaderPrograms
-{
-	ShaderProgram color;
-	ShaderProgram phong;
-	ShaderProgram output;
-	ShaderProgram line;
-};
-
-struct Textures
-{
-	Texture soulSpearDiffuse;
-	Texture soulSpearNormal;
-	Texture soulSpearSpecular;
-
-	Texture vampireDiffuse;
-	Texture vampireNormal;
-	Texture vampireSpecular;
-	Texture vampireEmission;
-};
-
 struct FrameBuffers
 {
 	FrameBuffer msaa;
 	FrameBuffer output;
-};
-
-struct Materials
-{
-	Material vampirePhongMaterial;
 };
 
 struct SpriteAnimations
@@ -60,59 +53,109 @@ struct SpriteAnimations
 
 struct Resource
 {
-	Meshes meshes;
-	ShaderPrograms shaders;
-	Textures textures;
+	std::vector<Mesh> meshes;
+	std::vector<ShaderProgram> shaders;
+	std::vector<Texture> textures;
+	std::vector<FrameBuffer> frameBuffers;
+	std::vector<Material> materials;
 	Animations animations;
 	Skeletons skeletons;
-	FrameBuffers frameBuffers;
-	Materials materials;
 	LineRenderer lineRenderer;
 	Window window;
 	SpriteAnimations spriteAnimations;
+	SpriteRenderer sprtieRenderer;
+	//Materials materials;
 };
 
 static void InitResources(Resource* resource, Window* window)
 {
+	// 0
 	{
 		ShaderProgram colorShader = {};
-		InitShaderProgram(&colorShader, "Color.vert", "Color.frag");
-		resource->shaders.color = colorShader;
+		InitShaderProgram(&colorShader, "Phong.vert", "Color.frag");
+		resource->shaders.push_back(colorShader);
+		//resource->shaders.color = colorShader;
 	}
 
+	// 1
 	{
 		ShaderProgram lineShader = {};
 		InitShaderProgram(&lineShader, "Line.vert", "Line.frag");
-		resource->shaders.line = lineShader;
+		resource->shaders.push_back(lineShader);
+		//resource->shaders.line = lineShader;
 	}
 
+	// 2
 	{
 		ShaderProgram phongShader = {};
 		InitShaderProgram(&phongShader, "Phong.vert", "Phong.frag");
-		resource->shaders.phong = phongShader;
-		SetUniform(&resource->shaders.phong, "u_diffuseTexture", 0);
-		SetUniform(&resource->shaders.phong, "u_normalTexture", 1);
-		SetUniform(&resource->shaders.phong, "u_specularTexture", 2);
-		SetUniform(&resource->shaders.phong, "u_emissionTexture", 3);
+		resource->shaders.push_back(phongShader);
+		//resource->shaders.phong = phongShader;
+		SetUniform(&resource->shaders[PHONG_SHADER], "u_diffuseTexture", 0);
+		SetUniform(&resource->shaders[PHONG_SHADER], "u_normalTexture", 1);
+		SetUniform(&resource->shaders[PHONG_SHADER], "u_specularTexture", 2);
+		SetUniform(&resource->shaders[PHONG_SHADER], "u_emissionTexture", 3);
 	}
 
+	// 3
 	{
 		ShaderProgram outputShader = {};
 		InitShaderProgram(&outputShader, "Output.vert", "Output.frag");
-		resource->shaders.output = outputShader;
-		SetUniform(&resource->shaders.output, "u_colourTexture", 0);
+		resource->shaders.push_back(outputShader);
+		SetUniform(&resource->shaders[OUTPUT_SHADER], "u_colourTexture", 0);
 	}
 
+	// 4
 	{
-        FrameBuffer fb = {};
-        InitFrameBuffer(&fb, window->width, window->height, 4);
-        resource->frameBuffers.msaa = fb;
-    }
+		ShaderProgram normalShader = {};
+		InitShaderProgram(&normalShader, "Phong.vert", "Normal.frag");
+		resource->shaders.push_back(normalShader);
+		//resource->shaders.phong = phongShader;
+		SetUniform(&resource->shaders[NORMAL_SHADER], "u_normalTexture", 0);
+	}
 
+	//5 
 	{
-		FrameBuffer fb = {};
-		InitFrameBuffer(&fb, window->width, window->height);
-		resource->frameBuffers.output = fb;
+		ShaderProgram colorShader = {};
+		InitShaderProgram(&colorShader, "Color.vert", "Color.frag");
+		resource->shaders.push_back(colorShader);
+	}
+
+	// 6
+	{
+		ShaderProgram diffuseShader = {};
+		InitShaderProgram(&diffuseShader, "Phong.vert", "Texture.frag");
+		resource->shaders.push_back(diffuseShader);
+		//resource->shaders.phong = phongShader;
+		SetUniform(&resource->shaders[TEXTURE_SHADER], "u_texture", 0);
+	}
+
+	// 7 
+	{
+		ShaderProgram spriteShader = {};
+		InitShaderProgram(&spriteShader, "Quad.vert", "Quad.frag");
+		resource->shaders.push_back(spriteShader);
+	}
+
+	// msaa
+	{
+		FrameBuffer msaa = {};
+		InitFrameBuffer(&msaa, window->width, window->height, 4);
+		resource->frameBuffers.push_back(msaa);
+	}
+
+	// output
+	{
+		FrameBuffer output = {};
+		InitFrameBuffer(&output, window->width, window->height);
+		resource->frameBuffers.push_back(output);
+	}
+
+	// sprite
+	{
+		FrameBuffer spirteFB = {};
+		InitFrameBuffer(&spirteFB, window->width, window->height);
+		resource->frameBuffers.push_back(spirteFB);
 	}
 
 
@@ -120,6 +163,13 @@ static void InitResources(Resource* resource, Window* window)
 		LineRenderer lineRenderer = {};
 		InitLineRenderer(&lineRenderer, 4096);
 		resource->lineRenderer = lineRenderer;
+	}
+
+	{
+		SpriteRenderer spriteRenderer = {};
+		spriteRenderer.program = &resource->shaders[SPRITE_SHADER];
+		InitSpriteRenderer(&spriteRenderer, 2048);
+		resource->sprtieRenderer = spriteRenderer;
 	}
 
 
@@ -134,35 +184,48 @@ static void InitResources(Resource* resource, Window* window)
 		MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
 		std::vector<Animation> animations = LoadAnimations(scene, vampireSkeleton, boneCount);
 		resource->skeletons.vampireSkeleton = vampireSkeleton;
-
 		resource->animations.vampireAnimation = animations[0];
-		InitMesh(&vampireMesh, &vampireMeshData);
-		resource->meshes.vampire = vampireMesh;
+		InitMesh("Vampire", &vampireMesh, &vampireMeshData);
+		resource->meshes.push_back(vampireMesh);
+		resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
+
 		Texture vampireDiffuseTexture = {};
 		LoadTexture(&vampireDiffuseTexture, "vampire\\textures\\Vampire_diffuse.png");
-		resource->textures.vampireDiffuse = vampireDiffuseTexture;
+		resource->textures.push_back(vampireDiffuseTexture);
+		//resource->textures.vampireDiffuse = vampireDiffuseTexture;
 
 		Texture vampireNormalTexture = {};
 		LoadTexture(&vampireNormalTexture, "vampire\\textures\\Vampire_normal.png");
-		resource->textures.vampireNormal = vampireNormalTexture;
+		resource->textures.push_back(vampireNormalTexture);
+		//resource->textures.vampireNormal = vampireNormalTexture;
 
 		Texture vampireSpecularTexture = {};
 		LoadTexture(&vampireSpecularTexture, "vampire\\textures\\Vampire_specular.png");
-		resource->textures.vampireSpecular = vampireSpecularTexture;
+		resource->textures.push_back(vampireSpecularTexture);
+		//resource->textures.vampireSpecular = vampireSpecularTexture;
 
 		Texture vampireEmissionTexture = {};
 		LoadTexture(&vampireEmissionTexture, "vampire\\textures\\Vampire_emission.png");
-		resource->textures.vampireEmission = vampireEmissionTexture;
+		resource->textures.push_back(vampireEmissionTexture);
+		//resource->textures.vampireEmission = vampireEmissionTexture;
 
-		resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
+	}
+
+	{
+		Texture whiteTexture = {};
+		LoadTexture(&whiteTexture, "white.png");
+		resource->textures.push_back(whiteTexture);
 	}
 
 	{
 		Material material = {};
-		material.phong.diffuseTexture = resource->textures.vampireDiffuse;
-		material.phong.normalTexture = resource->textures.vampireNormal;
-		material.phong.specularTexture = resource->textures.vampireSpecular;
-		material.phong.emissionTexture = resource->textures.vampireEmission;
+		material.shaderProgram = &resource->shaders[PHONG_SHADER];
+		material.type = 0;
+		material.name = "Phong";
+		material.phong.diffuseTexture = &resource->textures[VAMPIRE_DIFFUSE];
+		material.phong.normalTexture = &resource->textures[VAMPIRE_NORMAL];
+		material.phong.specularTexture = &resource->textures[VAMPIRE_SPECULAR];
+		material.phong.emissionTexture = &resource->textures[VAMPIRE_EMISSION];
 
 		material.phong.ka = { 1.0f, 1.0f, 1.0f };
 		material.phong.kd = { 1.0f, 1.0f, 1.0f };
@@ -170,7 +233,54 @@ static void InitResources(Resource* resource, Window* window)
 		material.phong.ke = { 1.0f, 1.0f, 1.0f };
 		material.phong.specularPower = 8.0f;
 
-		resource->materials.vampirePhongMaterial = material;
+		resource->materials.push_back(material);
+	}
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[COLOR_SHADER];
+		material.type = 1;
+		material.name = "Color";
+		material.color.color = { 1.0f, 1.0f, 1.0f };
+
+		resource->materials.push_back(material);
+	}
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[NORMAL_SHADER];
+		material.type = 2;
+		material.name = "Normal";
+		material.normal.texture = &resource->textures[VAMPIRE_NORMAL];
+
+		resource->materials.push_back(material);
+	}
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[TEXTURE_SHADER];
+		material.type = 3;
+		material.name = "Diffuse";
+		material.diffuse.texture = &resource->textures[VAMPIRE_DIFFUSE];
+		resource->materials.push_back(material);
+	}
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[TEXTURE_SHADER];
+		material.type = 4;
+		material.name = "Specular";
+		material.specular.texture = &resource->textures[VAMPIRE_SPECULAR];
+		resource->materials.push_back(material);
+	}
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[TEXTURE_SHADER];
+		material.type = 5;
+		material.name = "Emission";
+		material.diffuse.texture = &resource->textures[VAMPIRE_EMISSION];
+		resource->materials.push_back(material);
 	}
 
 	{
@@ -178,8 +288,8 @@ static void InitResources(Resource* resource, Window* window)
 		const aiScene* scene = importer.ReadFile("sphere.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 		Mesh sphereMesh = {};
 		MeshData sphereMeshData = LoadMeshData(scene);
-		InitMesh(&sphereMesh, &sphereMeshData);
-		resource->meshes.sphere = sphereMesh;
+		InitMesh("Sphere", &sphereMesh, &sphereMeshData);
+		resource->meshes.push_back(sphereMesh);
 	}
 
 	// quad mesh
@@ -209,8 +319,8 @@ static void InitResources(Resource* resource, Window* window)
 		quadMeshData.indices = { 0, 1, 2, 1, 3, 2 };
 
 		Mesh quadMesh = {};
-		InitMesh(&quadMesh, &quadMeshData);
-		resource->meshes.quad = quadMesh;
+		InitMesh("Quad", &quadMesh, &quadMeshData);
+		resource->meshes.push_back(quadMesh);
 	}
 	resource->spriteAnimations = {};
 }
@@ -231,4 +341,37 @@ static void OnWindowResize(GLFWwindow* window, int width, int height)
 	windowData->width = width;
 	windowData->height = height;
 	windowData->shouldUpdate = true;
+}
+
+static void DestroyResources(Resource* resource, Window* window)
+{
+	for (int i = 0; i < resource->textures.size(); i++)
+	{
+		glDeleteTextures(1, &resource->textures[i].id);
+	}
+
+	for (int i = 0; i < resource->spriteAnimations.count; i++)
+	{
+		for (int j = 0; j < resource->spriteAnimations.textures[i].size(); j++)
+		{
+			glDeleteTextures(1, &resource->spriteAnimations.textures[i][j].id);
+		}
+	}
+
+	for (int i = 0; i < resource->frameBuffers.size(); i++)
+	{
+		glDeleteFramebuffers(1, &resource->frameBuffers[i].fbo);
+		glDeleteRenderbuffers(1, &resource->frameBuffers[i].rbo);
+		glDeleteTextures(1, &resource->frameBuffers[i].texture.id);
+	}
+
+	for (int i = 0; i < resource->meshes.size(); i++)
+	{
+		glDeleteVertexArrays(1, &resource->meshes[i].vao);
+		glDeleteBuffers(1, &resource->meshes[i].vertexBuffer);
+		glDeleteBuffers(1, &resource->meshes[i].indexBuffer);
+	}
+
+	glDeleteVertexArrays(1, &resource->lineRenderer.vao);
+	glDeleteVertexArrays(1, &resource->lineRenderer.vertexBuffer);
 }

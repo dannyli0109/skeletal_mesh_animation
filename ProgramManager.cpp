@@ -5,7 +5,7 @@ int ProgramManager::Init()
 
     //Set resolution here, and give your window a different title.
     window = {};
-    if (!InitWindow(&window, 1280, 760)) return -1;
+    if (!InitWindow(&window, 1660, 760)) return -1;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -39,7 +39,7 @@ void ProgramManager::Update()
 
         if (window.width == 0 || window.height == 0) continue;
 
-        HandleCameraController(&scene.camera, &input, &lastInput, window.glfwWindow, dt, 50.0f, 2.0f);
+        HandleCameraController(&scene.camera, &input, &lastInput, window.glfwWindow, dt, 50000.0f, 2.0f);
 
         // draw frame buffer to screen
         
@@ -56,6 +56,7 @@ void ProgramManager::Update()
         RenderSceneWindow();
         RenderSpriteWindow();
         RenderSidePannel();
+        RenderResourcePannel();
         EndRenderGUI();
         //Swapping the buffers – this means this frame is over.
 
@@ -66,6 +67,7 @@ void ProgramManager::Update()
 
 void ProgramManager::Destroy()
 {
+    DestroyResources(&resource, &window);
     glfwTerminate();
     DestroyGUI();
 }
@@ -75,14 +77,14 @@ void ProgramManager::CaptureAnimationFrames()
     float timeIncrement = resource.animations.vampireAnimation.duration / (float)(frames);
 
     glViewport(0, 0, outputWidth, outputHeight);
-    InitFrameBuffer(&resource.frameBuffers.msaa, outputWidth, outputHeight, msaa);
-    InitFrameBuffer(&resource.frameBuffers.output, outputWidth, outputHeight);
+    InitFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], outputWidth, outputHeight, msaa);
+    InitFrameBuffer(&resource.frameBuffers[OUTPUT_FRAMEBUFFER], outputWidth, outputHeight);
     scene.camera.aspect = (float)outputWidth / (float)outputHeight;
     window.shouldUpdate = true;
 
     {
         glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[0], scene.models.rotations[0], scene.models.scales[0]);
-        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, modelMatrix, frames);
+        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes[VAMPIRE_MESH], &resource.animations.vampireAnimation, modelMatrix, frames);
         SnapCameraToBoundingVolume(volume);
     }
 
@@ -90,19 +92,23 @@ void ProgramManager::CaptureAnimationFrames()
     std::vector<Texture> spriteTextures;
     for (int i = 0; i < frames; i++)
     {
-        BindFrameBuffer(&resource.frameBuffers.msaa);
-        UpdateScene(&resource.shaders.phong, scene, frameTime);
-        RenderModels(&resource.shaders.phong, scene.models);
-        RenderLigths(&resource.shaders.color, resource, scene);
+        BindFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER]);
+        for (int i = 0; i < resource.shaders.size(); i++)
+        {
+            UpdateScene(&resource.shaders[i], scene, frameTime);
+        }
+        UpdateModels(scene.models, frameTime);
+        RenderModels(scene.models);
+        //RenderLigths(&resource.shaders[COLOR_SHADER], resource, scene);
 
-        ResolveFrameBuffer(&resource.frameBuffers.msaa, &resource.frameBuffers.output, outputWidth, outputHeight);
+        ResolveFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], &resource.frameBuffers[OUTPUT_FRAMEBUFFER], outputWidth, outputHeight);
         UnbindFrameBuffer();
         // draw frame buffer to screen
 
         DrawFrameBuffer(
-            &resource.shaders.output,
-            &resource.meshes.quad,
-            &resource.frameBuffers.output,
+            &resource.shaders[OUTPUT_SHADER],
+            &resource.meshes[QUAD_MESH],
+            &resource.frameBuffers[OUTPUT_FRAMEBUFFER],
             0, 0,
             1.0f, 1.0f
         );
@@ -110,7 +116,7 @@ void ProgramManager::CaptureAnimationFrames()
         std::stringstream ss;
         ss << "outputs\\frame" << i << ".png";
         GLsizei stride;
-        std::vector<char> buffer = GetDataFromFramBuffer(&resource.frameBuffers.output, &stride);
+        std::vector<char> buffer = GetDataFromFramBuffer(&resource.frameBuffers[OUTPUT_FRAMEBUFFER], &stride);
         SaveImage(ss.str(), buffer.data(), outputWidth, outputHeight, stride);
         {
             Texture texture;
@@ -126,8 +132,8 @@ void ProgramManager::CaptureAnimationFrames()
 void ProgramManager::RenderBoundingVolume()
 {
     ClearRenderer(&resource.lineRenderer);
-    glUseProgram(resource.shaders.line.shaderProgram);
-    UpdateCamera(&resource.shaders.line, scene.camera);
+    glUseProgram(resource.shaders[LINE_SHADER].shaderProgram);
+    UpdateCamera(&resource.shaders[LINE_SHADER], scene.camera);
 
     AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { max.x, min.y, min.z }, { 1, 1, 0, 1 });
     AddLine(&resource.lineRenderer, { min.x, min.y, min.z }, { min.x, max.y, min.z }, { 1, 0, 1, 1 });
@@ -163,8 +169,8 @@ void ProgramManager::RenderSceneWindow()
     if (window.shouldUpdate)
     {
         glViewport(0, 0, window.width, window.height);
-        InitFrameBuffer(&resource.frameBuffers.msaa, window.width, window.height, msaa);
-        InitFrameBuffer(&resource.frameBuffers.output, window.width, window.height);
+        InitFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], window.width, window.height, msaa);
+        InitFrameBuffer(&resource.frameBuffers[OUTPUT_FRAMEBUFFER], window.width, window.height);
         scene.camera.aspect = (float)window.width / (float)window.height;
         window.shouldUpdate = false;
     }
@@ -175,17 +181,22 @@ void ProgramManager::RenderSceneWindow()
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        BindFrameBuffer(&resource.frameBuffers.msaa);
-        UpdateScene(&resource.shaders.phong, scene, elapsedTime);
-        RenderModels(&resource.shaders.phong, scene.models);
-        RenderLigths(&resource.shaders.color, resource, scene);
+        BindFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER]);
+        for (int i = 0; i < resource.shaders.size(); i++)
+        {
+            UpdateScene(&resource.shaders[i], scene, elapsedTime);
+        }
+        UpdateModels(scene.models, elapsedTime);
+        RenderModels(scene.models);
+
+        //RenderLigths(&resource.shaders[UNSHADED_SHADER], resource, scene);
         RenderBoundingVolume();
 
-        ResolveFrameBuffer(&resource.frameBuffers.msaa, &resource.frameBuffers.output, window.width, window.height);
+        ResolveFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], &resource.frameBuffers[OUTPUT_FRAMEBUFFER], window.width, window.height);
         UnbindFrameBuffer();
     }
     
-    ImGui::Image((ImTextureID)resource.frameBuffers.output.texture.id, { size.x, size.y }, ImVec2(0, 1), ImVec2(1, 0));
+    ImGui::Image((ImTextureID)resource.frameBuffers[OUTPUT_FRAMEBUFFER].texture.id, { size.x, size.y }, ImVec2(0, 1), ImVec2(1, 0));
 
     ImGui::End();
 }
@@ -195,15 +206,33 @@ void ProgramManager::RenderSpriteWindow()
     ImGui::Begin("Sprite Window");
     if (resource.spriteAnimations.count > 0)
     {
+
         ImVec2 size = ImGui::GetContentRegionAvail();
+
+        if (size.x != scene.camera2D.windowSize.x || size.y != scene.camera2D.windowSize.y)
+        {
+            scene.camera2D.windowSize.x = size.x;
+            scene.camera2D.windowSize.y = size.y;
+            InitFrameBuffer(&resource.frameBuffers[SPRITE_FRAMEBUFFER], scene.camera2D.windowSize.x, scene.camera2D.windowSize.y);
+
+        }
 
         int index = resource.spriteAnimations.count - 1;
         int totalFrames = resource.spriteAnimations.textures[index].size();
-        float dt = fmod(elapsedTime, resource.spriteAnimations.durations[index]);
-        int currentFrame = dt / resource.spriteAnimations.durations[index] * totalFrames;
+        float deltaTime = fmod(elapsedTime, resource.spriteAnimations.durations[index]);
+        int currentFrame = deltaTime / resource.spriteAnimations.durations[index] * totalFrames;
         float aspect = resource.spriteAnimations.widths[index] / resource.spriteAnimations.heights[index];
 
-        ImGui::Image((ImTextureID)resource.spriteAnimations.textures[index][currentFrame].id, { size.x, size.x / aspect }, ImVec2(0, 1), ImVec2(1, 0));
+        BindFrameBuffer(&resource.frameBuffers[SPRITE_FRAMEBUFFER]);
+        ClearRenderer(&resource.sprtieRenderer);
+        glm::mat4 cameraProjection = GetCameraProjection(&scene.camera2D);
+        SetUniform(&resource.shaders[SPRITE_SHADER], "u_ProjectionMatrix", cameraProjection);
+        glm::mat4 spriteTransform = glm::scale(glm::mat4(1), { 5, 5, 5 });
+        AddSprite(&resource.sprtieRenderer, spriteTransform, &resource.spriteAnimations.textures[index][currentFrame], { 1, 1, 1, 1 }, {1, 1}, false);
+        Render(&resource.sprtieRenderer);
+        UnbindFrameBuffer();
+
+        ImGui::Image((ImTextureID)resource.frameBuffers[SPRITE_FRAMEBUFFER].texture.id, { size.x, size.y }, ImVec2(0, 0), ImVec2(1, 1));
 
         resource.spriteAnimations.currentFrames[index] = currentFrame;
     }
@@ -267,7 +296,7 @@ void ProgramManager::RenderSidePannel()
     if (ImGui::Button("Generate bounding volume") && frames > 0)
     {
         glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[0], scene.models.rotations[0], scene.models.scales[0]);
-        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes.vampire, &resource.animations.vampireAnimation, modelMatrix, frames);
+        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes[VAMPIRE_MESH], &resource.animations.vampireAnimation, modelMatrix, frames);
         SnapCameraToBoundingVolume(volume);
     }
 
@@ -292,8 +321,99 @@ void ProgramManager::SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> 
     float depth = max.z - min.z;
     float zX = (w / 2.0f) / tanf(fovX / 2.0f) + depth / 2.0f;
     float zY = (h / 2.0f) / tanf(fovY / 2.0f) + depth / 2.0f;
-    scene.camera.position.z = fmaxf(zX, zY);
 
-    scene.camera.near = scene.camera.position.z - depth / 2.0f;
+    float zCenter = (min.z + max.z) / 2.0f;
+    scene.camera.position.z = fmaxf(zX, zY) + zCenter;
+
+    scene.camera.near = scene.camera.position.z - zCenter - depth / 2.0f;
     scene.camera.far = scene.camera.position.z + depth / 2.0f;
+}
+
+void ProgramManager::RenderResourcePannel()
+{
+    ImGui::Begin("Resources");
+
+    std::vector<std::string> modelNames = scene.models.names;
+    if (scene.models.count > selectedModel)
+    {
+        ImGui::ListBox("Models", &selectedModel, VectorOfStringGetter, static_cast<void*>(&modelNames), scene.models.count);
+    }
+
+    int selectedMesh = -1;
+    for (int i = 0; i < resource.meshes.size(); i++)
+    {
+        if (&resource.meshes[i] == scene.models.meshes[selectedModel])
+        {
+            selectedMesh = i;
+            break;
+        }
+    }
+
+    std::vector<std::string> meshNames = MapArray<Mesh, std::string>(resource.meshes, [](Mesh mesh) {
+        return mesh.name;
+    });
+
+    if (meshNames.size() > selectedMesh)
+    {
+        ImGui::ListBox("Meshes", &selectedMesh, VectorOfStringGetter, static_cast<void*>(&meshNames), meshNames.size());
+    }
+
+    std::vector<std::string> materialNames = MapArray<Material, std::string>(resource.materials, [](Material material)
+    {
+            return material.name;
+    });
+
+    int selectedMaterial = -1;
+    for (int i = 0; i < resource.materials.size(); i++)
+    {
+        if (&resource.materials[i] == scene.models.materials[selectedModel])
+        {
+            selectedMaterial = i;
+            break;
+        }
+    }
+
+    if (resource.materials.size() > selectedMaterial)
+    {
+        ImGui::ListBox("Materials", &selectedMaterial, VectorOfStringGetter, static_cast<void*>(&materialNames), resource.materials.size());
+    }
+
+    //if (selectedMaterial == 1)
+    //{
+    //    int i = 0;
+    //}
+
+    /*
+    	    Texture diffuseTexture;
+			Texture normalTexture;
+			Texture specularTexture;
+			Texture emissionTexture;
+			glm::vec3 ka;
+			glm::vec3 kd;
+			glm::vec3 ks;
+			glm::vec3 ke;
+			float specularPower;
+    */
+
+    switch (resource.materials[selectedMaterial].type)
+    {
+        case 0:
+        {
+            
+            break;
+        }
+        case 1:
+        {
+            ImGui::ColorPicker3("Color", &resource.materials[selectedMaterial].color.color.x);
+            break;
+        }
+        default:
+            break;
+    }
+
+
+    scene.models.meshes[selectedModel] = &resource.meshes[selectedMesh];
+    scene.models.materials[selectedModel] = &resource.materials[selectedMaterial];
+
+    ImGui::End();
 }

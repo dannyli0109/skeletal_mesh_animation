@@ -8,6 +8,8 @@ struct Input
 	short aKey;
 	short sKey;
 	short dKey;
+    float mouseScrollOffsetX;
+    float mouseScrollOffsetY;
 };
 
 struct Window

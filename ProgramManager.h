@@ -42,6 +42,7 @@ private:
 	void RenderSpriteWindow();
 	void RenderSidePannel();
 	void SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> volume);
+	void RenderResourcePannel();
 
 private:
 	Window window;
@@ -59,5 +60,9 @@ private:
 	float elapsedTime;
 	int msaa = 4;
 
+
+	int selectedModel = 0;
+	//int selectedMesh = 0;
+	//int selectedMaterial = 0;
 };
 

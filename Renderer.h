@@ -1,5 +1,6 @@
 #define MAX_BONE_INFLUENCE 4
 
+
 struct ShaderProgram
 {
 	GLuint vertexShader;
@@ -21,7 +22,7 @@ struct VertexData
 			glm::vec3 normal;
 			glm::vec3 vertTangent;
 			glm::vec3 vertBitangent;
-			glm::vec4 color;
+			glm::vec3 color;
 			glm::vec2 uv;
 			int boneIDs[MAX_BONE_INFLUENCE];
 			float weights[MAX_BONE_INFLUENCE];
@@ -38,6 +39,7 @@ struct VertexData
 
 struct Mesh
 {
+	std::string name;
 	GLuint vertexBuffer;
 	GLuint indexBuffer;
 	GLuint vao;
@@ -96,6 +98,14 @@ struct Camera
 	float far;
 };
 
+struct Camera2D
+{
+	glm::vec2 position;
+	glm::vec2 windowSize;
+	float zoom;
+	float zoomSpeed;
+};
+
 struct FrameBuffer
 {
 	GLuint fbo;
@@ -114,16 +124,58 @@ struct LineRenderer
 	int maxSize;
 };
 
+struct SpriteVertex
+{
+	glm::vec3 position;
+	glm::vec2 uv;
+	glm::vec4 color;
+	float textureIndex;
+	glm::vec2 tiling;
+};
+
+struct SpriteRenderer
+{
+	ShaderProgram* program;
+	int maxIndices;
+	int maxVertices;
+	int indexCount;
+	int vertexCount;
+	std::vector<SpriteVertex> vertices;
+	std::vector<Texture*> textureSlots;
+	int maxTextureSlot;
+	int textureSlotIndex;
+	GLuint vertexBuffer;
+	GLuint indexBuffer;
+	GLuint vao;
+};
+
+static glm::vec4 quadPositions[4] = {
+	{-0.5f, 0.5f, 0, 1.0f},
+	{0.5f, 0.5f, 0, 1.0f},
+	{-0.5f, -0.5f, 0, 1.0f},
+	{0.5f, -0.5f, 0, 1.0f}
+};
+
+static glm::vec2 quadUvs[4] = {
+	{0, 0},
+	{1, 0},
+	{0, 1},
+	{1, 1}
+};
+
 struct Material
 {
+	std::string name;
 	int type;
+	ShaderProgram* shaderProgram;
 	union
 	{
 		struct {
-			Texture diffuseTexture;
-			Texture normalTexture;
-			Texture specularTexture;
-			Texture emissionTexture;
+			Texture* diffuseTexture;
+			Texture* normalTexture;
+			Texture* specularTexture;
+			Texture* emissionTexture;
+
 			glm::vec3 ka;
 			glm::vec3 kd;
 			glm::vec3 ks;
@@ -134,6 +186,22 @@ struct Material
 		struct {
 			glm::vec3 color;
 		} color;
+
+		struct {
+			Texture* texture;
+		} normal;
+
+		struct {
+			Texture* texture;
+		} diffuse;
+
+		struct {
+			Texture* texture;
+		} specular;
+
+		struct {
+			Texture* texture;
+		} emission;
 	};
 };
 
@@ -405,11 +473,11 @@ static MeshData LoadMeshData(const aiScene* scene)
 
 		if (meshInfo->HasVertexColors(0))
 		{
-			newVertex.mesh.color = { meshInfo->mColors[0][i].r, meshInfo->mColors[0][i].g, meshInfo->mColors[0][i].b, meshInfo->mColors[0][i].a };
+			newVertex.mesh.color = { meshInfo->mColors[0][i].r, meshInfo->mColors[0][i].g, meshInfo->mColors[0][i].b };
 		}
 		else
 		{
-			newVertex.mesh.color = { 1, 1, 1, 1 };
+			newVertex.mesh.color = { 1, 1, 1 };
 		}
 
 		if (meshInfo->HasTextureCoords(0))
@@ -605,7 +673,7 @@ static void GetPose(Animation& animation, Bone& skeleton, float dt, glm::mat4& p
 	}
 }
 
-static void InitMesh(Mesh* mesh, MeshData* meshData)
+static void InitMesh(std::string name, Mesh* mesh, MeshData* meshData)
 {
 	unsigned int indexCount = meshData->indices.size();
 	unsigned int vertexCount = meshData->vertices.size();
@@ -615,6 +683,7 @@ static void InitMesh(Mesh* mesh, MeshData* meshData)
 	*mesh = {};
 	mesh->indexCount = indexCount;
 	mesh->vertices = meshData->vertices;
+	mesh->name = name;
 
 	// generate buffers
 	glGenBuffers(1, &mesh->vertexBuffer);
@@ -910,4 +979,165 @@ static void SaveImage(std::string path, char* data, int width, int height, int s
 	//std::vector<char> buffer = GetDataFromFramBuffer(fb, &stride);
 	stbi_flip_vertically_on_write(true);
 	stbi_write_png(path.c_str(), width, height, 4, data , stride);
+}
+
+static void InitSpriteRenderer(SpriteRenderer* spriteRenderer, int batchSize)
+{
+	spriteRenderer->maxVertices = batchSize * 4;
+	spriteRenderer->maxIndices = batchSize * 6;
+	spriteRenderer->maxTextureSlot = 32;
+
+	// Gen buffer
+	glGenBuffers(1, &spriteRenderer->vertexBuffer);
+	glGenBuffers(1, &spriteRenderer->indexBuffer);
+	glGenVertexArrays(1, &spriteRenderer->vao);
+
+	spriteRenderer->vertices.resize(spriteRenderer->maxVertices);
+	spriteRenderer->textureSlots.resize(spriteRenderer->maxTextureSlot);
+
+	unsigned short* indices = new unsigned short[spriteRenderer->maxIndices];
+
+	unsigned short offset = 0;
+	for (int i = 0; i < spriteRenderer->maxIndices; i += 6)
+	{
+		indices[i + 0] = offset + 0;
+		indices[i + 1] = offset + 1;
+		indices[i + 2] = offset + 2;
+		indices[i + 3] = offset + 1;
+		indices[i + 4] = offset + 3;
+		indices[i + 5] = offset + 2;
+		offset += 4;
+	}
+
+	for (int i = 0; i < spriteRenderer->maxTextureSlot; i++)
+	{
+		std::stringstream tex;
+		tex << "u_Textures[" << i << "]";
+		SetUniform(spriteRenderer->program, tex.str(), i);
+	}
+
+	// white texture is the first texture
+	// spriteRenderer->textureSlots[0] = textures[(int)TextureKey::white];
+	spriteRenderer->textureSlotIndex = 0;
+
+	// Bind buffers
+	glBindBuffer(GL_ARRAY_BUFFER, spriteRenderer->vertexBuffer);
+	glBufferData(GL_ARRAY_BUFFER, spriteRenderer->maxVertices * sizeof(SpriteVertex), nullptr, GL_DYNAMIC_DRAW);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, spriteRenderer->indexBuffer);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, spriteRenderer->maxIndices * sizeof(unsigned short), indices, GL_STATIC_DRAW);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	glBindVertexArray(spriteRenderer->vao);
+	glBindBuffer(GL_ARRAY_BUFFER, spriteRenderer->vertexBuffer);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, spriteRenderer->indexBuffer);
+
+	// Set vertex attributes 
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), (const void*)offsetof(SpriteVertex, SpriteVertex::position));
+
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), (const void*)offsetof(SpriteVertex, SpriteVertex::uv));
+
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), (const void*)offsetof(SpriteVertex, SpriteVertex::color));
+
+	glEnableVertexAttribArray(3);
+	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), (const void*)offsetof(SpriteVertex, SpriteVertex::textureIndex));
+
+	glEnableVertexAttribArray(4);
+	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, sizeof(SpriteVertex), (const void*)offsetof(SpriteVertex, SpriteVertex::tiling));
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+	delete[] indices;
+}
+
+static void ClearRenderer(SpriteRenderer* spriteRenderer)
+{
+	spriteRenderer->indexCount = 0;
+	spriteRenderer->vertexCount = 0;
+	spriteRenderer->textureSlotIndex = 0;
+}
+
+static void Render(SpriteRenderer* spriteRenderer)
+{
+	if (spriteRenderer->indexCount == 0) return;
+
+	// bind the data
+	glBindBuffer(GL_ARRAY_BUFFER, spriteRenderer->vertexBuffer);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, spriteRenderer->vertexCount * sizeof(SpriteVertex), spriteRenderer->vertices.data());
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+	for (int i = 0; i < spriteRenderer->textureSlotIndex; i++)
+	{
+		glBindTextureUnit(i, spriteRenderer->textureSlots[i]->id);
+	}
+
+	glBindVertexArray(spriteRenderer->vao);
+	glDrawElements(GL_TRIANGLES, spriteRenderer->indexCount, GL_UNSIGNED_SHORT, 0);
+
+	glBindVertexArray(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+
+
+static void AddSprite(SpriteRenderer* spriteRenderer, glm::mat4 transform, Texture* texture, glm::vec4 tintColor, glm::vec2 tiling, bool flipped)
+{
+	// if current batch reach max, render the current batch and clear it
+	if (spriteRenderer->indexCount >= spriteRenderer->maxIndices)
+	{
+		Render(spriteRenderer);
+		ClearRenderer(spriteRenderer);
+	}
+
+	int textureIndex = -1;
+	for (int i = 0; i < spriteRenderer->textureSlotIndex; i++)
+	{
+		if (spriteRenderer->textureSlots[i]->id == texture->id)
+		{
+			textureIndex = i;
+			break;
+		}
+	}
+
+	if (textureIndex == -1)
+	{
+		// if there's a new texture and reach the max texture slot, render the current batch and clear it
+		if (spriteRenderer->textureSlotIndex >= spriteRenderer->maxTextureSlot)
+		{
+			Render(spriteRenderer);
+			ClearRenderer(spriteRenderer);
+		}
+
+		textureIndex = spriteRenderer->textureSlotIndex;
+		spriteRenderer->textureSlots[spriteRenderer->textureSlotIndex] = texture;
+		spriteRenderer->textureSlotIndex++;
+	}
+
+	for (int i = 0; i < 4; i++)
+	{
+		spriteRenderer->vertices[spriteRenderer->vertexCount].position = transform * quadPositions[i];
+		spriteRenderer->vertices[spriteRenderer->vertexCount].uv = quadUvs[i];
+		spriteRenderer->vertices[spriteRenderer->vertexCount].color = tintColor;
+		spriteRenderer->vertices[spriteRenderer->vertexCount].textureIndex = textureIndex;
+		spriteRenderer->vertices[spriteRenderer->vertexCount].tiling = tiling;
+
+		if (flipped)
+		{
+			spriteRenderer->vertices[spriteRenderer->vertexCount].uv.x = 1 - spriteRenderer->vertices[spriteRenderer->vertexCount].uv.x;
+		}
+		spriteRenderer->vertexCount++;
+	}
+	spriteRenderer->indexCount += 6;
+}
+
+static void AddSprite(SpriteRenderer* spriteRenderer, Texture* texture, glm::mat4 transform, glm::vec4 color)
+{
+	 AddSprite(spriteRenderer, transform, texture, color, { 1, 1 }, false);
 }
