@@ -11,6 +11,7 @@ struct ShaderProgram
 struct Texture
 {
 	GLuint id;
+	std::string name;
 };
 
 struct VertexData
@@ -104,6 +105,7 @@ struct Camera2D
 	glm::vec2 windowSize;
 	float zoom;
 	float zoomSpeed;
+	float aspect;
 };
 
 struct FrameBuffer
@@ -327,20 +329,23 @@ static void SetUniform(ShaderProgram* program, std::string varname, int value)
 
 
 // Texture
-static void LoadTexture(Texture* texture, std::string filename)
+static bool LoadTexture(Texture* texture, std::string name, std::string filename)
 {
+	bool loaded = false;
 	int width, height, channels;
 	unsigned char* data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
 	glGenTextures(1, &texture->id);
 	glBindTexture(GL_TEXTURE_2D, texture->id);
 	if (data)
 	{
+		texture->name = name;
 		if (channels == 3)
 		{
 			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 			glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glGenerateMipmap(GL_TEXTURE_2D);
+			loaded = true;
 		}
 		else if (channels == 4)
 		{
@@ -348,17 +353,26 @@ static void LoadTexture(Texture* texture, std::string filename)
 			glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			glTextureParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			glGenerateMipmap(GL_TEXTURE_2D);
+			loaded = true;
 		}
 		else {
 			std::cout << "unknown texture type" << std::endl;
+			loaded = false;
 		}
 	}
 	else {
 		std::cout << "Fail to load texture" << std::endl;
+		loaded = false;
 	}
 
 	glBindTexture(GL_TEXTURE_2D, 0);
 	stbi_image_free(data);
+	if (!loaded)
+	{
+		glDeleteTextures(1, &texture->id);
+		return false;
+	}
+	return true;
 }
 
 static void InitTexture(Texture* texture, char* data, int width, int height)
@@ -822,6 +836,11 @@ static void HandleCameraController(Camera* camera, Input* input, Input* lastInpu
 	}
 }
 
+static void HandleCameraController2D(Camera2D* camera2D, Input* input, GLFWwindow* window, float dt, float moveSpeed)
+{
+
+}
+
 
 // Frame Buffer ms
 static void InitFrameBuffer(FrameBuffer* frameBuffer, int width, int height, int samples)
@@ -1140,4 +1159,17 @@ static void AddSprite(SpriteRenderer* spriteRenderer, glm::mat4 transform, Textu
 static void AddSprite(SpriteRenderer* spriteRenderer, Texture* texture, glm::mat4 transform, glm::vec4 color)
 {
 	 AddSprite(spriteRenderer, transform, texture, color, { 1, 1 }, false);
+}
+
+static glm::mat4 GetCameraProjection(Camera2D* camera)
+{
+	float heightInTiles = camera->windowSize.y / camera->zoom;
+	float widthInTiles = camera->windowSize.x / camera->zoom;
+	glm::vec2 posAfterZoom = camera->position / camera->zoom;
+	return glm::ortho(
+		-widthInTiles / 2.0f + posAfterZoom.x,
+		widthInTiles / 2.0f + posAfterZoom.x,
+		-heightInTiles / 2.0f + posAfterZoom.y,
+		heightInTiles / 2.0f + posAfterZoom.y, -1.0f, 1.0f);
+
 }

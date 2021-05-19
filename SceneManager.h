@@ -281,6 +281,7 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 		camera2D.windowSize = { 1280.0f, 720.0f };
 		camera2D.zoom = 72.0f;
 		camera2D.zoomSpeed = 5.0f;
+		camera2D.aspect = 1280.0f / 720.0f;
 		scene->camera2D = camera2D;
 	}
 
@@ -313,13 +314,4 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 	}
 }
 
-
-static glm::mat4 GetCameraProjection(Camera2D* camera)
-{
-	return glm::ortho((-camera->windowSize.x / 2.0f + camera->position.x) / camera->zoom,
-		(camera->windowSize.x / 2.0f + camera->position.x) / camera->zoom,
-		(-camera->windowSize.y / 2.0f + camera->position.y) / camera->zoom,
-		(camera->windowSize.y / 2.0f + camera->position.y) / camera->zoom,
-		-1.0f, 1.0f);
-}
 

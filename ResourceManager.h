@@ -190,22 +190,22 @@ static void InitResources(Resource* resource, Window* window)
 		resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
 
 		Texture vampireDiffuseTexture = {};
-		LoadTexture(&vampireDiffuseTexture, "vampire\\textures\\Vampire_diffuse.png");
+		LoadTexture(&vampireDiffuseTexture, "Vampire Diffuse", "vampire\\textures\\Vampire_diffuse.png");
 		resource->textures.push_back(vampireDiffuseTexture);
 		//resource->textures.vampireDiffuse = vampireDiffuseTexture;
 
 		Texture vampireNormalTexture = {};
-		LoadTexture(&vampireNormalTexture, "vampire\\textures\\Vampire_normal.png");
+		LoadTexture(&vampireNormalTexture, "Vampire Normal", "vampire\\textures\\Vampire_normal.png");
 		resource->textures.push_back(vampireNormalTexture);
 		//resource->textures.vampireNormal = vampireNormalTexture;
 
 		Texture vampireSpecularTexture = {};
-		LoadTexture(&vampireSpecularTexture, "vampire\\textures\\Vampire_specular.png");
+		LoadTexture(&vampireSpecularTexture, "Vampire Specular", "vampire\\textures\\Vampire_specular.png");
 		resource->textures.push_back(vampireSpecularTexture);
 		//resource->textures.vampireSpecular = vampireSpecularTexture;
 
 		Texture vampireEmissionTexture = {};
-		LoadTexture(&vampireEmissionTexture, "vampire\\textures\\Vampire_emission.png");
+		LoadTexture(&vampireEmissionTexture, "Vampire Emission", "vampire\\textures\\Vampire_emission.png");
 		resource->textures.push_back(vampireEmissionTexture);
 		//resource->textures.vampireEmission = vampireEmissionTexture;
 
@@ -213,7 +213,7 @@ static void InitResources(Resource* resource, Window* window)
 
 	{
 		Texture whiteTexture = {};
-		LoadTexture(&whiteTexture, "white.png");
+		LoadTexture(&whiteTexture, "White", "white.png");
 		resource->textures.push_back(whiteTexture);
 	}
 

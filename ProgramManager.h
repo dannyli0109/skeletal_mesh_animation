@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <vector>
 #include <unordered_map>
+#include <filesystem>
 #include "Graphics.h"
 
 #include <assimp/Importer.hpp>
@@ -62,6 +63,9 @@ private:
 
 
 	int selectedModel = 0;
+	std::string texturePathName = "";
+	char textureName[128] = "";
+	bool loadingTexture = false;
 	//int selectedMesh = 0;
 	//int selectedMaterial = 0;
 };

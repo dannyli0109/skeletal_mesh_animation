@@ -40,6 +40,7 @@ void ProgramManager::Update()
         if (window.width == 0 || window.height == 0) continue;
 
         HandleCameraController(&scene.camera, &input, &lastInput, window.glfwWindow, dt, 50000.0f, 2.0f);
+        
 
         // draw frame buffer to screen
         
@@ -74,6 +75,7 @@ void ProgramManager::Destroy()
 
 void ProgramManager::CaptureAnimationFrames()
 {
+
     float timeIncrement = resource.animations.vampireAnimation.duration / (float)(frames);
 
     glViewport(0, 0, outputWidth, outputHeight);
@@ -90,6 +92,13 @@ void ProgramManager::CaptureAnimationFrames()
 
     float frameTime = 0;
     std::vector<Texture> spriteTextures;
+    std::string path = ".\\outputs";
+    std::filesystem::create_directory(path);
+
+    for (const auto& entry : std::filesystem::directory_iterator(path))
+    {
+        std::filesystem::remove_all(entry.path());
+    }
     for (int i = 0; i < frames; i++)
     {
         BindFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER]);
@@ -113,11 +122,15 @@ void ProgramManager::CaptureAnimationFrames()
             1.0f, 1.0f
         );
 
-        std::stringstream ss;
-        ss << "outputs\\frame" << i << ".png";
+        std::string imagePath = path;
+        imagePath += "\\frame";
+        imagePath += std::to_string(i);
+        imagePath += ".png";
+
+        //ss << "outputs\\frame" << i << ".png";
         GLsizei stride;
         std::vector<char> buffer = GetDataFromFramBuffer(&resource.frameBuffers[OUTPUT_FRAMEBUFFER], &stride);
-        SaveImage(ss.str(), buffer.data(), outputWidth, outputHeight, stride);
+        SaveImage(imagePath.c_str(), buffer.data(), outputWidth, outputHeight, stride);
         {
             Texture texture;
             InitTexture(&texture, buffer.data(), outputWidth, outputHeight);
@@ -204,67 +217,44 @@ void ProgramManager::RenderSceneWindow()
 void ProgramManager::RenderSpriteWindow()
 {
     ImGui::Begin("Sprite Window");
+    ImVec2 size = ImGui::GetContentRegionAvail();
+    if (size.x != scene.camera2D.windowSize.x || size.y != scene.camera2D.windowSize.y)
+    {
+        scene.camera2D.windowSize.x = size.x;
+        scene.camera2D.windowSize.y = size.y;
+
+        InitFrameBuffer(&resource.frameBuffers[SPRITE_FRAMEBUFFER], scene.camera2D.windowSize.x, scene.camera2D.windowSize.y);
+    }
+
     if (resource.spriteAnimations.count > 0)
     {
-
-        ImVec2 size = ImGui::GetContentRegionAvail();
-
-        if (size.x != scene.camera2D.windowSize.x || size.y != scene.camera2D.windowSize.y)
-        {
-            scene.camera2D.windowSize.x = size.x;
-            scene.camera2D.windowSize.y = size.y;
-            InitFrameBuffer(&resource.frameBuffers[SPRITE_FRAMEBUFFER], scene.camera2D.windowSize.x, scene.camera2D.windowSize.y);
-
-        }
-
         int index = resource.spriteAnimations.count - 1;
         int totalFrames = resource.spriteAnimations.textures[index].size();
         float deltaTime = fmod(elapsedTime, resource.spriteAnimations.durations[index]);
         int currentFrame = deltaTime / resource.spriteAnimations.durations[index] * totalFrames;
         float aspect = resource.spriteAnimations.widths[index] / resource.spriteAnimations.heights[index];
+        resource.spriteAnimations.currentFrames[index] = currentFrame;
 
         BindFrameBuffer(&resource.frameBuffers[SPRITE_FRAMEBUFFER]);
+        glViewport(0, 0, size.x, size.y);
         ClearRenderer(&resource.sprtieRenderer);
         glm::mat4 cameraProjection = GetCameraProjection(&scene.camera2D);
         SetUniform(&resource.shaders[SPRITE_SHADER], "u_ProjectionMatrix", cameraProjection);
-        glm::mat4 spriteTransform = glm::scale(glm::mat4(1), { 5, 5, 5 });
+        glm::mat4 spriteTransform = glm::mat4(1.0f);
         AddSprite(&resource.sprtieRenderer, spriteTransform, &resource.spriteAnimations.textures[index][currentFrame], { 1, 1, 1, 1 }, {1, 1}, false);
+
         Render(&resource.sprtieRenderer);
         UnbindFrameBuffer();
 
-        ImGui::Image((ImTextureID)resource.frameBuffers[SPRITE_FRAMEBUFFER].texture.id, { size.x, size.y }, ImVec2(0, 0), ImVec2(1, 1));
-
-        resource.spriteAnimations.currentFrames[index] = currentFrame;
+        ImGui::Image((ImTextureID)resource.frameBuffers[SPRITE_FRAMEBUFFER].texture.id, { size.x, size.y });
     }
+
     ImGui::End();
 }
 
 void ProgramManager::RenderSidePannel()
 {
     ImGui::Begin("Imgui window");
-
-    {
-        // open Dialog Simple
-        if (ImGui::Button("Open File Dialog"))
-            ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".dae", ".");
-
-        // display
-        if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey"))
-        {
-            // action if OK
-            if (ImGuiFileDialog::Instance()->IsOk())
-            {
-                std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
-                std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
-                // action
-                std::cout << filePath << std::endl;
-                std::cout << filePathName << std::endl;
-            }
-
-            // close
-            ImGuiFileDialog::Instance()->Close();
-        }
-    }
 
     ImGui::DragFloat3("Camera Position", &scene.camera.position[0], 0.1f);
     float phi = glm::degrees(scene.camera.phi);
@@ -304,6 +294,8 @@ void ProgramManager::RenderSidePannel()
     {
         CaptureAnimationFrames();
     }
+
+    ImGui::DragFloat("camera 2d zoom", &scene.camera2D.zoom);
     ImGui::End();
 }
 
@@ -332,11 +324,44 @@ void ProgramManager::SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> 
 void ProgramManager::RenderResourcePannel()
 {
     ImGui::Begin("Resources");
+    // load texture
+    
+    {
+        // open Dialog Simple
+        if (ImGui::Button("Load Texture"))
+            ImGuiFileDialog::Instance()->OpenDialog("ChooseTextureDlgKey", "Choose File", ".png,.jpg", ".");
 
+        // display
+        if (ImGuiFileDialog::Instance()->Display("ChooseTextureDlgKey"))
+        {
+            // action if OK
+            if (ImGuiFileDialog::Instance()->IsOk())
+            {
+                texturePathName += ImGuiFileDialog::Instance()->GetFilePathName();
+            }
+
+            // close
+            ImGuiFileDialog::Instance()->Close();
+        }
+
+        ImGui::Text(texturePathName.c_str());
+        ImGui::InputText("Texture Name", textureName, IM_ARRAYSIZE(textureName));
+        if (ImGui::Button("Add"))
+        {
+            Texture texture = {};
+            std::string texName(textureName);
+            if (LoadTexture(&texture, texName, texturePathName))
+            {
+                resource.textures.push_back(texture);
+            }
+        }
+    }
+
+    // select model
     std::vector<std::string> modelNames = scene.models.names;
     if (scene.models.count > selectedModel)
     {
-        ImGui::ListBox("Models", &selectedModel, VectorOfStringGetter, static_cast<void*>(&modelNames), scene.models.count);
+        ImGui::Combo("Models", &selectedModel, VectorOfStringGetter, static_cast<void*>(&modelNames), scene.models.count);
     }
 
     int selectedMesh = -1;
@@ -355,7 +380,7 @@ void ProgramManager::RenderResourcePannel()
 
     if (meshNames.size() > selectedMesh)
     {
-        ImGui::ListBox("Meshes", &selectedMesh, VectorOfStringGetter, static_cast<void*>(&meshNames), meshNames.size());
+        ImGui::Combo("Meshes", &selectedMesh, VectorOfStringGetter, static_cast<void*>(&meshNames), meshNames.size());
     }
 
     std::vector<std::string> materialNames = MapArray<Material, std::string>(resource.materials, [](Material material)
@@ -375,8 +400,9 @@ void ProgramManager::RenderResourcePannel()
 
     if (resource.materials.size() > selectedMaterial)
     {
-        ImGui::ListBox("Materials", &selectedMaterial, VectorOfStringGetter, static_cast<void*>(&materialNames), resource.materials.size());
+        ImGui::Combo("Materials", &selectedMaterial, VectorOfStringGetter, static_cast<void*>(&materialNames), resource.materials.size());
     }
+
 
     //if (selectedMaterial == 1)
     //{
@@ -394,12 +420,92 @@ void ProgramManager::RenderResourcePannel()
 			glm::vec3 ke;
 			float specularPower;
     */
-
+    ImGui::Spacing();
     switch (resource.materials[selectedMaterial].type)
     {
         case 0:
         {
-            
+            std::vector<std::string> textureNames = MapArray<Texture, std::string>(resource.textures, [](Texture texture) {
+                return texture.name;
+            });
+
+            // diffuse
+            {
+                int selectedDiffusedTexture = -1;
+                for (int i = 0; i < resource.textures.size(); i++)
+                {
+                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.diffuseTexture)
+                    {
+                        selectedDiffusedTexture = i;
+                        break;
+                    }
+                }
+                if (resource.textures.size() > selectedDiffusedTexture && selectedDiffusedTexture != -1)
+                {
+                    ImGui::Combo("Diffuse Texture", &selectedDiffusedTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+                }
+
+                scene.models.materials[selectedModel]->phong.diffuseTexture = &resource.textures[selectedDiffusedTexture];
+            }
+
+            // normal
+            {
+                int selectedNormalTexture = -1;
+                for (int i = 0; i < resource.textures.size(); i++)
+                {
+                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.normalTexture)
+                    {
+                        selectedNormalTexture = i;
+                        break;
+                    }
+                }
+                if (resource.textures.size() > selectedNormalTexture && selectedNormalTexture != -1)
+                {
+                    ImGui::Combo("Normal Texture", &selectedNormalTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+                }
+
+                scene.models.materials[selectedModel]->phong.normalTexture = &resource.textures[selectedNormalTexture];
+            }
+
+            // specular
+            {
+                int selectedSpecularTexture = -1;
+                for (int i = 0; i < resource.textures.size(); i++)
+                {
+                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.specularTexture)
+                    {
+                        selectedSpecularTexture = i;
+                        break;
+                    }
+                }
+                if (resource.textures.size() > selectedSpecularTexture && selectedSpecularTexture != -1)
+                {
+                    ImGui::Combo("Specular Texture", &selectedSpecularTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+                }
+
+                scene.models.materials[selectedModel]->phong.specularTexture = &resource.textures[selectedSpecularTexture];
+            }
+
+            // emission
+            {
+                int selectedEmissionTexture = -1;
+                for (int i = 0; i < resource.textures.size(); i++)
+                {
+                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.emissionTexture)
+                    {
+                        selectedEmissionTexture = i;
+                        break;
+                    }
+                }
+                if (resource.textures.size() > selectedEmissionTexture && selectedEmissionTexture != -1)
+                {
+                    ImGui::Combo("Emission Texture", &selectedEmissionTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+                }
+
+                scene.models.materials[selectedModel]->phong.emissionTexture = &resource.textures[selectedEmissionTexture];
+            }
+
+
             break;
         }
         case 1:
