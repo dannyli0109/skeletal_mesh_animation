@@ -150,6 +150,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="imgui_stdlib.cpp" />
     <ClCompile Include="lib\glad\glad.c" />
     <ClCompile Include="lib\ImGuiFileDialog\ImGuiFileDialog.cpp" />
     <ClCompile Include="lib\imgui\imgui.cpp" />
@@ -163,6 +164,7 @@
     <ClCompile Include="src\EntryPoint.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="imgui_stdlib.h" />
     <ClInclude Include="InputManager.h" />
     <ClInclude Include="lib\ImGuiFileDialog\ImGuiFileDialog.h" />
     <ClInclude Include="lib\ImGuiFileDialog\ImGuiFileDialogConfig.h" />

@@ -13,6 +13,8 @@
 #define SPHERE_MESH 1
 #define QUAD_MESH 2
 
+#define VAMPIRE_ANIMATION 0
+
 #define VAMPIRE_PHONG_MATERIAL 0
 
 #define VAMPIRE_DIFFUSE 0
@@ -58,7 +60,8 @@ struct Resource
 	std::vector<Texture> textures;
 	std::vector<FrameBuffer> frameBuffers;
 	std::vector<Material> materials;
-	Animations animations;
+	std::vector<Animation> animations;
+	//Animations animations;
 	Skeletons skeletons;
 	LineRenderer lineRenderer;
 	Window window;
@@ -182,12 +185,19 @@ static void InitResources(Resource* resource, Window* window)
 		Bone vampireSkeleton = {};
 		int boneCount = 0;
 		MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
+		
 		std::vector<Animation> animations = LoadAnimations(scene, vampireSkeleton, boneCount);
 		resource->skeletons.vampireSkeleton = vampireSkeleton;
-		resource->animations.vampireAnimation = animations[0];
+		for (int i = 0; i < animations.size(); i++)
+		{
+			resource->animations.push_back(animations[i]);
+			resource->animations[resource->animations.size() - 1].currentPose.resize(boneCount, glm::mat4(1.0f));
+		}
+		//resource->animations.vampireAnimation = animations[0];
 		InitMesh("Vampire", &vampireMesh, &vampireMeshData);
 		resource->meshes.push_back(vampireMesh);
-		resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
+		
+		//resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
 
 		Texture vampireDiffuseTexture = {};
 		LoadTexture(&vampireDiffuseTexture, "Vampire Diffuse", "vampire\\textures\\Vampire_diffuse.png");
@@ -215,6 +225,12 @@ static void InitResources(Resource* resource, Window* window)
 		Texture whiteTexture = {};
 		LoadTexture(&whiteTexture, "White", "white.png");
 		resource->textures.push_back(whiteTexture);
+	}
+
+	{
+		Texture blackTexture = {};
+		LoadTexture(&blackTexture, "Black", "black.jpg");
+		resource->textures.push_back(blackTexture);
 	}
 
 	{
@@ -343,6 +359,13 @@ static void OnWindowResize(GLFWwindow* window, int width, int height)
 	windowData->shouldUpdate = true;
 }
 
+static void RemoveTexture(Resource* resource, int index)
+{
+	if (index >= resource->textures.size()) return;
+	glDeleteTextures(1, &resource->textures[index].id);
+	resource->textures.erase(resource->textures.begin() + index);
+}
+
 static void DestroyResources(Resource* resource, Window* window)
 {
 	for (int i = 0; i < resource->textures.size(); i++)
@@ -375,3 +398,63 @@ static void DestroyResources(Resource* resource, Window* window)
 	glDeleteVertexArrays(1, &resource->lineRenderer.vao);
 	glDeleteVertexArrays(1, &resource->lineRenderer.vertexBuffer);
 }
+
+static bool LoadMeshData(std::string filePath, MeshData* meshData)
+{
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+	if (!scene) return false;
+	*meshData = LoadMeshData(scene);
+	return true;
+}
+
+//static bool LoadAnimationData(std::string filePath, Skeleton* skeleton)
+//{
+//	Assimp::Importer importer;
+//	const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+//	if (!scene) return false;
+//	aiMesh* meshInfo = scene->mMeshes[0];
+//
+//	std::unordered_map<std::string, std::pair<int, glm::mat4>> boneInfo = {};
+//
+//	std::vector<int> boneCounts;
+//	boneCounts.resize(meshInfo->mNumVertices, 0);
+//	for (int i = 0; i < meshInfo->mNumBones; i++)
+//	{
+//		aiBone* bone = meshInfo->mBones[i];
+//		glm::mat4 m = ConvertAssimpToGLM(bone->mOffsetMatrix);
+//		boneInfo[bone->mName.C_Str()] = { i, m };
+//
+//		for (int j = 0; j < bone->mNumWeights; j++)
+//		{
+//			int id = bone->mWeights[j].mVertexId;
+//			float weight = bone->mWeights[j].mWeight;
+//
+//			switch (boneCounts[id])
+//			{
+//			case 0:
+//				meshData.vertices[id].mesh.boneIDs[0] = i;
+//				meshData.vertices[id].mesh.weights[0] = weight;
+//				break;
+//			case 1:
+//				meshData.vertices[id].mesh.boneIDs[1] = i;
+//				meshData.vertices[id].mesh.weights[1] = weight;
+//				break;
+//			case 2:
+//				meshData.vertices[id].mesh.boneIDs[2] = i;
+//				meshData.vertices[id].mesh.weights[2] = weight;
+//				break;
+//			case 3:
+//				meshData.vertices[id].mesh.boneIDs[3] = i;
+//				meshData.vertices[id].mesh.weights[3] = weight;
+//				break;
+//			default:
+//				break;
+//			}
+//			boneCounts[id]++;
+//		}
+//	}
+//
+//	boneCount = meshInfo->mNumBones;
+//	ReadBone(skeleton, scene->mRootNode, boneInfo);
+//}

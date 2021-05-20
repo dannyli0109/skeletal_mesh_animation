@@ -22,6 +22,7 @@ uniform mat4 u_modelMatrix;
 const int MAX_BONES = 100;
 const int MAX_BONE_INFLUENCE = 4;
 uniform mat4 u_boneTransforms[MAX_BONES];
+uniform bool u_animated;
 
 void main()
 {
@@ -29,13 +30,19 @@ void main()
 	v_uvs = a_uvs;
 	
 	mat4 boneTransform = mat4(0.0);
-	boneTransform += u_boneTransforms[a_boneIds[0]] * a_weights[0];
-	boneTransform += u_boneTransforms[a_boneIds[1]] * a_weights[1];
-	boneTransform += u_boneTransforms[a_boneIds[2]] * a_weights[2];
-	boneTransform += u_boneTransforms[a_boneIds[3]] * a_weights[3];
-	
-	if (a_weights[0] == 0.0)
+	if (u_animated)
 	{
+		boneTransform += u_boneTransforms[a_boneIds[0]] * a_weights[0];
+		boneTransform += u_boneTransforms[a_boneIds[1]] * a_weights[1];
+		boneTransform += u_boneTransforms[a_boneIds[2]] * a_weights[2];
+		boneTransform += u_boneTransforms[a_boneIds[3]] * a_weights[3];
+		
+		if (a_weights[0] == 0.0)
+		{
+			boneTransform = mat4(1.0);
+		}
+	}
+	else {
 		boneTransform = mat4(1.0);
 	}
 	

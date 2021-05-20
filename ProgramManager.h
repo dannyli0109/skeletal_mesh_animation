@@ -44,6 +44,10 @@ private:
 	void RenderSidePannel();
 	void SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> volume);
 	void RenderResourcePannel();
+	void RenderSceneHierarchy();
+	std::string GetNextUIID();
+	std::string AppendNextUIID(std::string input);
+	void LoadResourceGUI(std::string title, bool& isLoading);
 
 private:
 	Window window;
@@ -63,10 +67,17 @@ private:
 
 
 	int selectedModel = 0;
+
+	std::string textureName = "";
 	std::string texturePathName = "";
-	char textureName[128] = "";
 	bool loadingTexture = false;
-	//int selectedMesh = 0;
-	//int selectedMaterial = 0;
+
+	bool loadingModel = false;
+
+	std::string meshName = "";
+	std::string meshPathName = "";
+	bool loadingMesh = false;
+
+	int uiId = 0;
 };
 

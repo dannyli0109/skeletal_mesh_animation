@@ -54,6 +54,9 @@
     <ClCompile Include="lib\ImGuiFileDialog\ImGuiFileDialog.cpp">
       <Filter>libs\ImGuiFileDialog</Filter>
     </ClCompile>
+    <ClCompile Include="imgui_stdlib.cpp">
+      <Filter>libs\stb_image</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib\imgui\imconfig.h">
@@ -124,6 +127,9 @@
     </ClInclude>
     <ClInclude Include="lib\ImGuiFileDialog\ImGuiFileDialogConfig.h">
       <Filter>libs\ImGuiFileDialog</Filter>
+    </ClInclude>
+    <ClInclude Include="imgui_stdlib.h">
+      <Filter>libs\stb_image</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

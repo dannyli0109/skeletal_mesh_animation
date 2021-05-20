@@ -17,7 +17,7 @@ struct Models
 	std::vector<glm::vec3> scales;
 	//std::vector<glm::mat4> transforms;
 	std::vector<Material*> materials;
-	std::vector<Animation> animations;
+	std::vector<Animation*> animations;
 	int count;
 };
 
@@ -61,7 +61,7 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 	for (int i = 0; i < frames; i++)
 	{
 		glm::mat4 parentTransform(1.0f);
-		GetPose(*animation, animation->skeleton, frameTime, parentTransform);
+		GetPose(animation, animation->skeleton, frameTime, parentTransform);
 		std::vector<glm::mat4> boneTransforms = animation->currentPose;
 		for (int j = 0; j < mesh->vertices.size(); j++)
 		{
@@ -91,6 +91,31 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 	return { {minX, minY, minZ}, {maxX, maxY, maxZ} };
 }
 
+static std::pair<glm::vec3, glm::vec3> GetBoundingVolume(Mesh* mesh, glm::mat4 modelMatrix)
+{
+	float minX = FLT_MAX;
+	float maxX = FLT_MIN;
+
+	float minY = FLT_MAX;
+	float maxY = FLT_MIN;
+
+	float minZ = FLT_MAX;
+	float maxZ = FLT_MIN;
+	for (int i = 0; i < mesh->vertices.size(); i++)
+	{
+		VertexData vertex = mesh->vertices[i];
+		glm::vec4 pos = glm::vec4(vertex.mesh.position, 1.0f);
+		glm::vec4 finalPos = modelMatrix * pos;
+		if (finalPos.x > maxX) maxX = finalPos.x;
+		if (finalPos.x < minX) minX = finalPos.x;
+		if (finalPos.y > maxY) maxY = finalPos.y;
+		if (finalPos.y < minY) minY = finalPos.y;
+		if (finalPos.z > maxZ) maxZ = finalPos.z;
+		if (finalPos.z < minZ) minZ = finalPos.z;
+	}
+	return { {minX, minY, minZ}, {maxX, maxY, maxZ} };
+}
+
 static void AddModel(
 	Scene* scene,
 	std::string name,
@@ -100,7 +125,7 @@ static void AddModel(
 	glm::vec3 rotation,
 	glm::vec3 scale,
 	Material* material,
-	Animation animation
+	Animation* animation
 )
 {
 	scene->models.names.push_back(name);
@@ -207,9 +232,16 @@ static void UpdateModels(Models& models, float elapsedTime)
 		UpdateMaterial(models.materials[i]);
 		glm::mat4 modelMatrix = GetModelMatrix(models.positions[i], models.rotations[i], models.scales[i]);
 		SetUniform(shader, "u_modelMatrix", modelMatrix);
-		glm::mat4 parentTransform(1.0f);
-		GetPose(models.animations[i], models.animations[i].skeleton, elapsedTime, parentTransform);
-		SetUniform(shader, "u_boneTransforms", models.animations[i].currentPose[0], models.animations[i].currentPose.size());
+		if (models.animations[i])
+		{
+			glm::mat4 parentTransform(1.0f);
+			GetPose(models.animations[i], models.animations[i]->skeleton, elapsedTime, parentTransform);
+			SetUniform(shader, "u_boneTransforms", models.animations[i]->currentPose[0], models.animations[i]->currentPose.size());
+			SetUniform(shader, "u_animated", true);
+		}
+		else {
+			SetUniform(shader, "u_animated", false);
+		}
 	}
 }
 
@@ -295,7 +327,8 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 			&resource->meshes[VAMPIRE_MESH], 
 			position, rotation, scale,
 			&resource->materials[VAMPIRE_PHONG_MATERIAL],
-			resource->animations.vampireAnimation
+			//&resource->animations[VAMPIRE_ANIMATION]
+			nullptr
 		);
 	}
 

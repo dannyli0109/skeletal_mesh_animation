@@ -12,6 +12,8 @@ struct Texture
 {
 	GLuint id;
 	std::string name;
+	int width;
+	int height;
 };
 
 struct VertexData
@@ -54,6 +56,12 @@ struct Bone
 	std::string name;
 	glm::mat4 offset;
 	std::vector<Bone> children;
+};
+
+struct Skeleton
+{
+	Bone root;
+	int count;
 };
 
 
@@ -336,6 +344,8 @@ static bool LoadTexture(Texture* texture, std::string name, std::string filename
 	unsigned char* data = stbi_load(filename.c_str(), &width, &height, &channels, 0);
 	glGenTextures(1, &texture->id);
 	glBindTexture(GL_TEXTURE_2D, texture->id);
+	texture->width = width;
+	texture->height = height;
 	if (data)
 	{
 		texture->name = name;
@@ -377,6 +387,8 @@ static bool LoadTexture(Texture* texture, std::string name, std::string filename
 
 static void InitTexture(Texture* texture, char* data, int width, int height)
 {
+	texture->width = width;
+	texture->height = height;
 	glGenTextures(1, &texture->id);
 	glBindTexture(GL_TEXTURE_2D, texture->id);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -643,11 +655,11 @@ static std::pair<int, float> GetTimeFraction(std::vector<float>& times, float& d
 }
 
 
-static void GetPose(Animation& animation, Bone& skeleton, float dt, glm::mat4& parentTransform)
+static void GetPose(Animation* animation, Bone& skeleton, float dt, glm::mat4& parentTransform)
 {
-	if (animation.boneTransforms.find(skeleton.name) == animation.boneTransforms.end()) return;
-	BoneTransformTrack& btt = animation.boneTransforms[skeleton.name];
-	dt = fmod(dt, animation.duration);
+	if (animation->boneTransforms.find(skeleton.name) == animation->boneTransforms.end()) return;
+	BoneTransformTrack& btt = animation->boneTransforms[skeleton.name];
+	dt = fmod(dt, animation->duration);
 	std::pair<int, float> fp;
 	fp = GetTimeFraction(btt.positionTimestamps, dt);
 
@@ -679,7 +691,7 @@ static void GetPose(Animation& animation, Bone& skeleton, float dt, glm::mat4& p
 
 	/*output[skeleton.id] = animation.globalInverseTransform * globalTransform * skeleton.offset;
 	outputBone[skeleton.id] = globalTransform;*/
-	animation.currentPose[skeleton.id] = animation.globalInverseTransform * globalTransform * skeleton.offset;
+	animation->currentPose[skeleton.id] = animation->globalInverseTransform * globalTransform * skeleton.offset;
 
 	for (Bone& child : skeleton.children)
 	{
