@@ -13,7 +13,8 @@
 #define SPHERE_MESH 1
 #define QUAD_MESH 2
 
-#define VAMPIRE_ANIMATION 0
+#define NONE 0
+#define VAMPIRE_ANIMATION 1
 
 #define VAMPIRE_PHONG_MATERIAL 0
 
@@ -62,7 +63,7 @@ struct Resource
 	std::vector<Material> materials;
 	std::vector<Animation> animations;
 	//Animations animations;
-	Skeletons skeletons;
+	//Skeletons skeletons;
 	LineRenderer lineRenderer;
 	Window window;
 	SpriteAnimations spriteAnimations;
@@ -175,6 +176,11 @@ static void InitResources(Resource* resource, Window* window)
 		resource->sprtieRenderer = spriteRenderer;
 	}
 
+	{
+		Animation placeHolder = {};
+		placeHolder.name = "(None)";
+		resource->animations.push_back(placeHolder);
+	}
 
 	{
 		// init vampire
@@ -182,16 +188,18 @@ static void InitResources(Resource* resource, Window* window)
 		const aiScene* scene = importer.ReadFile("vampire/dancing_vampire.dae", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
 		Mesh vampireMesh = {};
-		Bone vampireSkeleton = {};
-		int boneCount = 0;
-		MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
+		//Bone vampireSkeleton = {};
+		//int boneCount = 0;
+		MeshData vampireMeshData = LoadMeshData(scene, 0);
+		//LoadBoneData(scene, &vampireMeshData, vampireSkeleton, boneCount);
+		//MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
 		
-		std::vector<Animation> animations = LoadAnimations(scene, vampireSkeleton, boneCount);
-		resource->skeletons.vampireSkeleton = vampireSkeleton;
+		std::vector<Animation> animations = LoadAnimations(scene, &vampireMeshData);
+		//resource->skeletons.vampireSkeleton = vampireSkeleton;
 		for (int i = 0; i < animations.size(); i++)
 		{
 			resource->animations.push_back(animations[i]);
-			resource->animations[resource->animations.size() - 1].currentPose.resize(boneCount, glm::mat4(1.0f));
+			resource->animations[resource->animations.size() - 1].currentPose.resize(resource->animations[resource->animations.size() - 1].boneCount, glm::mat4(1.0f));
 		}
 		//resource->animations.vampireAnimation = animations[0];
 		InitMesh("Vampire", &vampireMesh, &vampireMeshData);
@@ -303,7 +311,7 @@ static void InitResources(Resource* resource, Window* window)
 		Assimp::Importer importer;
 		const aiScene* scene = importer.ReadFile("sphere.obj", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 		Mesh sphereMesh = {};
-		MeshData sphereMeshData = LoadMeshData(scene);
+		MeshData sphereMeshData = LoadMeshData(scene, 0);
 		InitMesh("Sphere", &sphereMesh, &sphereMeshData);
 		resource->meshes.push_back(sphereMesh);
 	}
@@ -399,12 +407,25 @@ static void DestroyResources(Resource* resource, Window* window)
 	glDeleteVertexArrays(1, &resource->lineRenderer.vertexBuffer);
 }
 
-static bool LoadMeshData(std::string filePath, MeshData* meshData)
+static bool LoadMeshData(std::string filePath, std::vector<MeshData>& meshDatas)
 {
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 	if (!scene) return false;
-	*meshData = LoadMeshData(scene);
+	for (int i = 0; i < scene->mNumMeshes; i++)
+	{
+		meshDatas.push_back(LoadMeshData(scene, i));
+	}
+	return true;
+}
+
+static bool LoadAnimations(std::string filePath, std::vector<Animation>& animations, MeshData* meshData)
+{
+	Assimp::Importer importer;
+	const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+	if (!scene) return false;
+	
+	animations = LoadAnimations(scene, meshData);
 	return true;
 }
 

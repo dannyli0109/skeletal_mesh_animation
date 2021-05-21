@@ -27,8 +27,6 @@ struct VertexData
 			glm::vec3 vertBitangent;
 			glm::vec3 color;
 			glm::vec2 uv;
-			int boneIDs[MAX_BONE_INFLUENCE];
-			float weights[MAX_BONE_INFLUENCE];
 		} mesh;
 
 		struct
@@ -37,6 +35,11 @@ struct VertexData
 			glm::vec4 color;
 		} line;
 	};
+
+	struct {
+		int boneIDs[MAX_BONE_INFLUENCE];
+		float weights[MAX_BONE_INFLUENCE];
+	} animated;
 };
 
 
@@ -48,6 +51,7 @@ struct Mesh
 	GLuint vao;
 	std::vector<VertexData> vertices;
 	unsigned int indexCount;
+	bool initialised;
 };
 
 struct Bone
@@ -85,6 +89,7 @@ struct BoneTransformTrack
 
 struct Animation
 {
+	std::string name;
 	float duration;
 	int ticksPersecond;
 	std::unordered_map<std::string, BoneTransformTrack> boneTransforms;
@@ -484,11 +489,11 @@ static bool ReadBone(Bone& bone, aiNode* node, std::unordered_map<std::string, s
 	return false;
 }
 
-static MeshData LoadMeshData(const aiScene* scene)
+static MeshData LoadMeshData(const aiScene* scene, int index)
 {
 	MeshData meshData = {};
 
-	aiMesh* meshInfo = scene->mMeshes[0];
+	aiMesh* meshInfo = scene->mMeshes[index];
 	meshData.vertices.reserve(meshInfo->mNumVertices);
 	meshData.indices.reserve(meshInfo->mNumFaces);
 
@@ -551,14 +556,14 @@ static MeshData LoadMeshData(const aiScene* scene)
 
 }
 
-static MeshData LoadMeshData(const aiScene* scene, Bone& skeleton, int& boneCount)
+static void LoadBoneData(const aiScene* scene, MeshData* meshData, Bone& skeleton, int& boneCount)
 {
-	MeshData meshData = LoadMeshData(scene);
+	//MeshData meshData = LoadMeshData(scene);
 	aiMesh* meshInfo = scene->mMeshes[0];
 
 	std::unordered_map<std::string, std::pair<int, glm::mat4>> boneInfo = {};
 	std::vector<int> boneCounts;
-	boneCounts.resize(meshData.vertices.size(), 0);
+	boneCounts.resize(meshData->vertices.size(), 0);
 	for (int i = 0; i < meshInfo->mNumBones; i++)
 	{
 		aiBone* bone = meshInfo->mBones[i];
@@ -573,20 +578,20 @@ static MeshData LoadMeshData(const aiScene* scene, Bone& skeleton, int& boneCoun
 			switch (boneCounts[id])
 			{
 			case 0:
-				meshData.vertices[id].mesh.boneIDs[0] = i;
-				meshData.vertices[id].mesh.weights[0] = weight;
+				meshData->vertices[id].animated.boneIDs[0] = i;
+				meshData->vertices[id].animated.weights[0] = weight;
 				break;
 			case 1:
-				meshData.vertices[id].mesh.boneIDs[1] = i;
-				meshData.vertices[id].mesh.weights[1] = weight;
+				meshData->vertices[id].animated.boneIDs[1] = i;
+				meshData->vertices[id].animated.weights[1] = weight;
 				break;
 			case 2:
-				meshData.vertices[id].mesh.boneIDs[2] = i;
-				meshData.vertices[id].mesh.weights[2] = weight;
+				meshData->vertices[id].animated.boneIDs[2] = i;
+				meshData->vertices[id].animated.weights[2] = weight;
 				break;
 			case 3:
-				meshData.vertices[id].mesh.boneIDs[3] = i;
-				meshData.vertices[id].mesh.weights[3] = weight;
+				meshData->vertices[id].animated.boneIDs[3] = i;
+				meshData->vertices[id].animated.weights[3] = weight;
 				break;
 			default:
 				break;
@@ -597,14 +602,18 @@ static MeshData LoadMeshData(const aiScene* scene, Bone& skeleton, int& boneCoun
 
 	boneCount = meshInfo->mNumBones;
 	ReadBone(skeleton, scene->mRootNode, boneInfo);
-	return meshData;
 }
 
-static std::vector<Animation> LoadAnimations(const aiScene* scene, Bone& skeleton, int& boneCount)
+static std::vector<Animation> LoadAnimations(const aiScene* scene, MeshData* meshData)
 {
 	std::vector<Animation> animations;
 	aiAnimation** animationInfos = scene->mAnimations;
 	aiNode* root = scene->mRootNode;
+
+	Bone skeleton = {};
+	int boneCount = 0;
+
+	LoadBoneData(scene, meshData, skeleton, boneCount);
 
 	for (int i = 0; i < scene->mNumAnimations; i++)
 	{
@@ -615,6 +624,7 @@ static std::vector<Animation> LoadAnimations(const aiScene* scene, Bone& skeleto
 		animation.globalInverseTransform = glm::inverse(ConvertAssimpToGLM(scene->mRootNode->mTransformation));
 		animation.boneCount = boneCount;
 		animation.skeleton = skeleton;
+		animation.name = anim->mName.C_Str();
 
 		for (int j = 0; j < anim->mNumChannels; j++)
 		{
@@ -743,9 +753,9 @@ static void InitMesh(std::string name, Mesh* mesh, MeshData* meshData)
 	glVertexAttribPointer(5, 2, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.uv));
 	
 	glEnableVertexAttribArray(6);
-	glVertexAttribPointer(6, 4, GL_FLOAT, GL_INT, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.boneIDs));
+	glVertexAttribPointer(6, 4, GL_FLOAT, GL_INT, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::animated.boneIDs));
 	glEnableVertexAttribArray(7);
-	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::mesh.weights));
+	glVertexAttribPointer(7, 4, GL_FLOAT, GL_FALSE, sizeof(VertexData), (const void*)offsetof(VertexData, VertexData::animated.weights));
 	
 	glBindVertexArray(0);
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

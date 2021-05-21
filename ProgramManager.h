@@ -37,7 +37,8 @@ public:
 	void Destroy();
 
 private:
-	void CaptureAnimationFrames();
+	void CaptureAnimationFrames(int numFrames);
+	void CaptureStaticFrame();
 	void RenderBoundingVolume();
 	void RenderSceneWindow();
 	void RenderSpriteWindow();
@@ -45,9 +46,10 @@ private:
 	void SnapCameraToBoundingVolume(std::pair<glm::vec3, glm::vec3> volume);
 	void RenderResourcePannel();
 	void RenderSceneHierarchy();
+	void RenderModelDetailPannel();
 	std::string GetNextUIID();
 	std::string AppendNextUIID(std::string input);
-	void LoadResourceGUI(std::string title, bool& isLoading);
+	//void LoadResourceGUI(std::string title, bool& isLoading);
 
 private:
 	Window window;
@@ -57,14 +59,13 @@ private:
 	Input input;
 	Input lastInput;
 	float dt;
-	int frames = 0;
+	int frames = 60;
 	int outputWidth = 0;
 	int outputHeight = 0;
 	glm::vec3 min;
 	glm::vec3 max;
 	float elapsedTime;
 	int msaa = 4;
-
 
 	int selectedModel = 0;
 
@@ -79,5 +80,6 @@ private:
 	bool loadingMesh = false;
 
 	int uiId = 0;
+	bool firstTime = true;
 };
 

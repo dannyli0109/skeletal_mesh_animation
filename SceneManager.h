@@ -69,10 +69,10 @@ static std::pair<glm::vec3, glm::vec3> GetAnimationBoundingVolume(Mesh* mesh, An
 			glm::mat4 boneTransform = glm::mat4(0.0f);
 			for (int k = 0; k < 4; k++)
 			{
-				boneTransform += boneTransforms[vertex.mesh.boneIDs[k]] * vertex.mesh.weights[k];
+				boneTransform += boneTransforms[vertex.animated.boneIDs[k]] * vertex.animated.weights[k];
 			}
 
-			if (vertex.mesh.weights[0] == 0)
+			if (vertex.animated.weights[0] == 0)
 			{
 				boneTransform = glm::mat4(1.0f);
 			}
@@ -327,8 +327,8 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 			&resource->meshes[VAMPIRE_MESH], 
 			position, rotation, scale,
 			&resource->materials[VAMPIRE_PHONG_MATERIAL],
-			//&resource->animations[VAMPIRE_ANIMATION]
-			nullptr
+			&resource->animations[VAMPIRE_ANIMATION]
+			//nullptr
 		);
 	}
 

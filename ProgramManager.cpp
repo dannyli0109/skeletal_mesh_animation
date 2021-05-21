@@ -59,6 +59,7 @@ void ProgramManager::Update()
         RenderSceneHierarchy();
         RenderSidePannel();
         RenderResourcePannel();
+        RenderModelDetailPannel();
         EndRenderGUI();
         //Swapping the buffers – this means this frame is over.
 
@@ -75,10 +76,12 @@ void ProgramManager::Destroy()
     DestroyGUI();
 }
 
-void ProgramManager::CaptureAnimationFrames()
+void ProgramManager::CaptureAnimationFrames(int numFrames)
 {
-
-    float timeIncrement = resource.animations[VAMPIRE_ANIMATION].duration / (float)(frames);
+    //scene.models[selectedModel].
+    Animation* animation = scene.models.animations[selectedModel];
+    Mesh* mesh = scene.models.meshes[selectedModel];
+    float timeIncrement = 0;
 
     glViewport(0, 0, outputWidth, outputHeight);
     InitFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], outputWidth, outputHeight, msaa);
@@ -87,9 +90,19 @@ void ProgramManager::CaptureAnimationFrames()
     window.shouldUpdate = true;
 
     {
-        glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[0], scene.models.rotations[0], scene.models.scales[0]);
-        std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(&resource.meshes[VAMPIRE_MESH], &resource.animations[VAMPIRE_ANIMATION], modelMatrix, frames);
-        SnapCameraToBoundingVolume(volume);
+        glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[selectedModel], scene.models.rotations[selectedModel], scene.models.scales[selectedModel]);
+
+        if (animation)
+        {           
+            timeIncrement = animation->duration / (float)(numFrames);
+            std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(mesh, animation, modelMatrix, frames);
+            SnapCameraToBoundingVolume(volume);
+        }
+        else 
+        {
+            std::pair<glm::vec3, glm::vec3> volume = GetBoundingVolume(scene.models.meshes[selectedModel], modelMatrix);
+            SnapCameraToBoundingVolume(volume);
+        }
     }
 
     float frameTime = 0;
@@ -101,7 +114,7 @@ void ProgramManager::CaptureAnimationFrames()
     {
         std::filesystem::remove_all(entry.path());
     }
-    for (int i = 0; i < frames; i++)
+    for (int i = 0; i < numFrames; i++)
     {
         BindFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER]);
         for (int i = 0; i < resource.shaders.size(); i++)
@@ -142,6 +155,20 @@ void ProgramManager::CaptureAnimationFrames()
         frameTime += timeIncrement;
     }
     AddSpriteAnimation(&resource.spriteAnimations, spriteTextures, outputWidth, outputHeight, resource.animations[VAMPIRE_ANIMATION].duration);
+}
+
+void ProgramManager::CaptureStaticFrame()
+{
+    glViewport(0, 0, outputWidth, outputHeight);
+    InitFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], outputWidth, outputHeight, msaa);
+    InitFrameBuffer(&resource.frameBuffers[OUTPUT_FRAMEBUFFER], outputWidth, outputHeight);
+    scene.camera.aspect = (float)outputWidth / (float)outputHeight;
+    window.shouldUpdate = true;
+
+    glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[selectedModel], scene.models.rotations[selectedModel], scene.models.scales[selectedModel]);
+    std::pair<glm::vec3, glm::vec3> volume = GetBoundingVolume(scene.models.meshes[selectedModel], modelMatrix);
+    SnapCameraToBoundingVolume(volume);
+
 }
 
 void ProgramManager::RenderBoundingVolume()
@@ -298,9 +325,19 @@ void ProgramManager::RenderSidePannel()
         }
     }
 
-    if (ImGui::Button("Capture") && frames > 0 && outputWidth > 0 && outputHeight > 0)
+    if (ImGui::Button("Capture") && outputWidth > 0 && outputHeight > 0)
     {
-        CaptureAnimationFrames();
+        if (scene.models.animations[selectedModel])
+        {
+            if(frames > 0)
+            {
+                CaptureAnimationFrames(frames);
+            }
+        }
+        else
+        {
+            CaptureAnimationFrames(1);
+        }
     }
 
     ImGui::DragFloat("camera 2d zoom", &scene.camera2D.zoom);
@@ -383,19 +420,17 @@ void ProgramManager::RenderResourcePannel()
             }
             if (ImGui::Button("Add") && meshName.size() != 0)
             {
-                /* Texture texture = {};
-                 std::string texName(textureName);
-                 if (LoadTexture(&texture, texName, texturePathName))
-                 {
-                     resource.textures.push_back(texture);
-                 }*/
+                std::vector<MeshData> meshDatas;
 
-                MeshData meshData = {};
-                if (LoadMeshData(meshPathName, &meshData))
+                //MeshData meshData = {};
+                if (LoadMeshData(meshPathName, meshDatas))
                 {
-                    Mesh mesh = {};
-                    InitMesh(meshName, &mesh, &meshData);
-                    resource.meshes.push_back(mesh);
+                    for (int j = 0; j < meshDatas.size(); j++)
+                    { 
+                        Mesh mesh = {};
+                        InitMesh(meshName, &mesh, &meshDatas[j]);
+                        resource.meshes.push_back(mesh);
+                    }
                 }
 
                 loadingMesh = false;
@@ -404,7 +439,6 @@ void ProgramManager::RenderResourcePannel()
             }
         }
     }
-
 
     // load texture
     {  
@@ -476,10 +510,34 @@ void ProgramManager::RenderResourcePannel()
             }
         }
     }
+   
+
     ImGui::End();
 
+}
 
+void ProgramManager::RenderSceneHierarchy()
+{
+    ImGui::Begin("Scene Hierarchy");
+
+    std::vector<std::string> modelNames = scene.models.names;
+    if (scene.models.count > selectedModel)
+    {
+        ImGui::ListBox(("Models" + GetNextUIID()).c_str(), &selectedModel, VectorOfStringGetter, static_cast<void*>(&modelNames), scene.models.count);
+    }
+
+    if (ImGui::Button("Add Model..."))
+    {
+
+    }
+
+    ImGui::End();
+}
+
+void ProgramManager::RenderModelDetailPannel()
+{
     ImGui::Begin("Model");
+
     // select model
     std::vector<std::string> modelNames = scene.models.names;
     if (scene.models.count > selectedModel)
@@ -499,16 +557,39 @@ void ProgramManager::RenderResourcePannel()
 
     std::vector<std::string> meshNames = MapArray<Mesh, std::string>(resource.meshes, [](Mesh mesh) {
         return mesh.name;
-    });
+        });
 
     if (meshNames.size() > selectedMesh)
     {
         ImGui::Combo("Meshes", &selectedMesh, VectorOfStringGetter, static_cast<void*>(&meshNames), meshNames.size());
     }
 
+    std::vector<std::string> animationNames = MapArray<Animation, std::string>(resource.animations, [](Animation animation) {
+        return animation.name;
+    });
+
+    //animationNames.insert(animationNames.begin(), "(None)");
+
+    int selectedAnimation = 0;
+    int currentAnimation = 0;
+    for (int i = 0; i < resource.animations.size(); i++)
+    {
+        if (&resource.animations[i] == scene.models.animations[selectedModel])
+        {
+            selectedAnimation = i;
+            currentAnimation = i;
+            break;
+        }
+    }
+
+    if (resource.animations.size() > selectedAnimation)
+    {
+        ImGui::Combo("Animations", &selectedAnimation, VectorOfStringGetter, static_cast<void*>(&animationNames), resource.animations.size());
+    }
+
     std::vector<std::string> materialNames = MapArray<Material, std::string>(resource.materials, [](Material material)
     {
-            return material.name;
+        return material.name;
     });
 
     int selectedMaterial = 0;
@@ -533,133 +614,136 @@ void ProgramManager::RenderResourcePannel()
     //}
 
     /*
-    	    Texture diffuseTexture;
-			Texture normalTexture;
-			Texture specularTexture;
-			Texture emissionTexture;
-			glm::vec3 ka;
-			glm::vec3 kd;
-			glm::vec3 ks;
-			glm::vec3 ke;
-			float specularPower;
+            Texture diffuseTexture;
+            Texture normalTexture;
+            Texture specularTexture;
+            Texture emissionTexture;
+            glm::vec3 ka;
+            glm::vec3 kd;
+            glm::vec3 ks;
+            glm::vec3 ke;
+            float specularPower;
     */
     ImGui::Spacing();
     switch (resource.materials[selectedMaterial].type)
     {
-        case 0:
-        {
-            std::vector<std::string> textureNames = MapArray<Texture, std::string>(resource.textures, [](Texture texture) {
-                return texture.name;
+    case 0:
+    {
+        std::vector<std::string> textureNames = MapArray<Texture, std::string>(resource.textures, [](Texture texture) {
+            return texture.name;
             });
 
-            // diffuse
-            {
-                int selectedDiffusedTexture = 0;
-                for (int i = 0; i < resource.textures.size(); i++)
-                {
-                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.diffuseTexture)
-                    {
-                        selectedDiffusedTexture = i;
-                        break;
-                    }
-                }
-                if (resource.textures.size() > selectedDiffusedTexture)
-                {
-                    ImGui::Combo("Diffuse Texture", &selectedDiffusedTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
-                }
-
-                scene.models.materials[selectedModel]->phong.diffuseTexture = &resource.textures[selectedDiffusedTexture];
-            }
-
-            // normal
-            {
-                int selectedNormalTexture = 0;
-                for (int i = 0; i < resource.textures.size(); i++)
-                {
-                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.normalTexture)
-                    {
-                        selectedNormalTexture = i;
-                        break;
-                    }
-                }
-                if (resource.textures.size() > selectedNormalTexture)
-                {
-                    ImGui::Combo("Normal Texture", &selectedNormalTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
-                }
-
-                scene.models.materials[selectedModel]->phong.normalTexture = &resource.textures[selectedNormalTexture];
-            }
-
-            // specular
-            {
-                int selectedSpecularTexture = 0;
-                for (int i = 0; i < resource.textures.size(); i++)
-                {
-                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.specularTexture)
-                    {
-                        selectedSpecularTexture = i;
-                        break;
-                    }
-                }
-                if (resource.textures.size() > selectedSpecularTexture)
-                {
-                    ImGui::Combo("Specular Texture", &selectedSpecularTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
-                }
-
-                scene.models.materials[selectedModel]->phong.specularTexture = &resource.textures[selectedSpecularTexture];
-            }
-
-            // emission
-            {
-                int selectedEmissionTexture = 0;
-                for (int i = 0; i < resource.textures.size(); i++)
-                {
-                    if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.emissionTexture)
-                    {
-                        selectedEmissionTexture = i;
-                        break;
-                    }
-                }
-                if (resource.textures.size() > selectedEmissionTexture)
-                {
-                    ImGui::Combo("Emission Texture", &selectedEmissionTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
-                }
-
-                scene.models.materials[selectedModel]->phong.emissionTexture = &resource.textures[selectedEmissionTexture];
-            }
-
-
-            break;
-        }
-        case 1:
+        // diffuse
         {
-            ImGui::ColorPicker3("Color", &resource.materials[selectedMaterial].color.color.x);
-            break;
+            int selectedDiffusedTexture = 0;
+            for (int i = 0; i < resource.textures.size(); i++)
+            {
+                if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.diffuseTexture)
+                {
+                    selectedDiffusedTexture = i;
+                    break;
+                }
+            }
+            if (resource.textures.size() > selectedDiffusedTexture)
+            {
+                ImGui::Combo("Diffuse Texture", &selectedDiffusedTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+            }
+
+            scene.models.materials[selectedModel]->phong.diffuseTexture = &resource.textures[selectedDiffusedTexture];
         }
-        default:
-            break;
+
+        // normal
+        {
+            int selectedNormalTexture = 0;
+            for (int i = 0; i < resource.textures.size(); i++)
+            {
+                if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.normalTexture)
+                {
+                    selectedNormalTexture = i;
+                    break;
+                }
+            }
+            if (resource.textures.size() > selectedNormalTexture)
+            {
+                ImGui::Combo("Normal Texture", &selectedNormalTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+            }
+
+            scene.models.materials[selectedModel]->phong.normalTexture = &resource.textures[selectedNormalTexture];
+        }
+
+        // specular
+        {
+            int selectedSpecularTexture = 0;
+            for (int i = 0; i < resource.textures.size(); i++)
+            {
+                if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.specularTexture)
+                {
+                    selectedSpecularTexture = i;
+                    break;
+                }
+            }
+            if (resource.textures.size() > selectedSpecularTexture)
+            {
+                ImGui::Combo("Specular Texture", &selectedSpecularTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+            }
+
+            scene.models.materials[selectedModel]->phong.specularTexture = &resource.textures[selectedSpecularTexture];
+        }
+
+        // emission
+        {
+            int selectedEmissionTexture = 0;
+            for (int i = 0; i < resource.textures.size(); i++)
+            {
+                if (&resource.textures[i] == scene.models.materials[selectedModel]->phong.emissionTexture)
+                {
+                    selectedEmissionTexture = i;
+                    break;
+                }
+            }
+            if (resource.textures.size() > selectedEmissionTexture)
+            {
+                ImGui::Combo("Emission Texture", &selectedEmissionTexture, VectorOfStringGetter, static_cast<void*>(&textureNames), resource.textures.size());
+            }
+
+            scene.models.materials[selectedModel]->phong.emissionTexture = &resource.textures[selectedEmissionTexture];
+        }
+        break;
+    }
+    case 1:
+    {
+        ImGui::ColorPicker3("Color", &resource.materials[selectedMaterial].color.color.x);
+        break;
+    }
+    default:
+        break;
     }
 
 
     scene.models.meshes[selectedModel] = &resource.meshes[selectedMesh];
     scene.models.materials[selectedModel] = &resource.materials[selectedMaterial];
-
-    ImGui::End();
-}
-
-void ProgramManager::RenderSceneHierarchy()
-{
-    ImGui::Begin("Scene Hierarchy");
-
-    std::vector<std::string> modelNames = scene.models.names;
-    if (scene.models.count > selectedModel)
+    if (selectedAnimation == 0)
     {
-        ImGui::ListBox(("Models" + GetNextUIID()).c_str(), &selectedModel, VectorOfStringGetter, static_cast<void*>(&modelNames), scene.models.count);
+        scene.models.animations[selectedModel] = nullptr;
+    }
+    else 
+    {
+        scene.models.animations[selectedModel] = &resource.animations[selectedAnimation];
     }
 
-    if (ImGui::Button("Add Model..."))
+    if (currentAnimation != selectedAnimation || firstTime)
     {
-
+        firstTime = false;
+        glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[selectedModel], scene.models.rotations[selectedModel], scene.models.scales[selectedModel]);
+        if (scene.models.animations[selectedModel])
+        {
+            std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(scene.models.meshes[selectedModel], scene.models.animations[selectedModel], modelMatrix, frames);
+            SnapCameraToBoundingVolume(volume);
+        }
+        else {
+            std::pair<glm::vec3, glm::vec3> volume = GetBoundingVolume(scene.models.meshes[selectedModel], modelMatrix);
+            SnapCameraToBoundingVolume(volume);
+        }
     }
 
     ImGui::End();
