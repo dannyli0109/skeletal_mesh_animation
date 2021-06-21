@@ -139,7 +139,6 @@ static void AddModel(
 	scene->models.animations.push_back(animation);
 	scene->models.count++;
 
-
 }
 
 static glm::mat4 GetModelMatrix(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
@@ -217,6 +216,19 @@ static void UpdateMaterial(Material* material)
 	case 5:
 	{
 		BindTexture(material->emission.texture, 0);
+		break;
+	}
+	case 6:
+	{
+		SetUniform(shaderProgram, "u_ka", material->phongVertexNormal.ka);
+		SetUniform(shaderProgram, "u_kd", material->phongVertexNormal.kd);
+		SetUniform(shaderProgram, "u_ks", material->phongVertexNormal.ks);
+		SetUniform(shaderProgram, "u_ke", material->phongVertexNormal.ke);
+		SetUniform(shaderProgram, "u_specularPower", material->phongVertexNormal.specularPower);
+		SetUniform(shaderProgram, "u_specularColor", material->phongVertexNormal.specularColor);
+
+		BindTexture(material->phongVertexNormal.diffuseTexture, 0);
+		BindTexture(material->phongVertexNormal.emissionTexture, 1);
 		break;
 	}
 	default:
@@ -317,17 +329,31 @@ static void InitScene(Scene* scene, Resource* resource, Window* window)
 		scene->camera2D = camera2D;
 	}
 
+	//{
+	//	/*glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });*/
+	//	glm::vec3 position = { 0, 0, 0 };
+	//	glm::vec3 rotation = { 0, 0, 0 };
+	//	glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
+	//	AddModel(scene,
+	//		"Vampire",
+	//		&resource->meshes[VAMPIRE_MESH], 
+	//		position, rotation, scale,
+	//		&resource->materials[VAMPIRE_PHONG_MATERIAL],
+	//		&resource->animations[VAMPIRE_ANIMATION]
+	//		//nullptr
+	//	);
+	//}
+
 	{
-		/*glm::mat4 modelMatrix = glm::scale(glm::mat4(1.0f), { 1.0f, 1.0f, 1.0f });*/
 		glm::vec3 position = { 0, 0, 0 };
 		glm::vec3 rotation = { 0, 0, 0 };
 		glm::vec3 scale = { 1.0f, 1.0f, 1.0f };
 		AddModel(scene,
-			"Vampire",
-			&resource->meshes[VAMPIRE_MESH], 
+			"Cyber",
+			&resource->meshes[CYBER_MESH],
 			position, rotation, scale,
-			&resource->materials[VAMPIRE_PHONG_MATERIAL],
-			&resource->animations[VAMPIRE_ANIMATION]
+			&resource->materials[CYBER_PHONG_MATERIAL],
+			&resource->animations[CYBER_RUNNING_ANIMATION]
 			//nullptr
 		);
 	}

@@ -217,6 +217,23 @@ struct Material
 		struct {
 			Texture* texture;
 		} emission;
+
+		struct {
+			Texture* diffuseTexture;
+			Texture* emissionTexture;
+
+			glm::vec3 ka;
+			glm::vec3 kd;
+			glm::vec3 ks;
+			glm::vec3 ke;
+			float specularPower;
+			glm::vec3 specularColor;
+		} phongVertexNormal;
+
+		struct
+		{
+
+		} vertNormal;
 	};
 };
 
@@ -856,11 +873,6 @@ static void HandleCameraController(Camera* camera, Input* input, Input* lastInpu
 		camera->theta += turnSpeed * (input->mouseX - lastInput->mouseX) * dt;
 		camera->phi -= turnSpeed * (input->mouseY - lastInput->mouseY) * dt;
 	}
-}
-
-static void HandleCameraController2D(Camera2D* camera2D, Input* input, GLFWwindow* window, float dt, float moveSpeed)
-{
-
 }
 
 

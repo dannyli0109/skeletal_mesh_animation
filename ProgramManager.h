@@ -38,7 +38,6 @@ public:
 
 private:
 	void CaptureAnimationFrames(int numFrames);
-	void CaptureStaticFrame();
 	void RenderBoundingVolume();
 	void RenderSceneWindow();
 	void RenderSpriteWindow();
@@ -60,8 +59,8 @@ private:
 	Input lastInput;
 	float dt;
 	int frames = 60;
-	int outputWidth = 0;
-	int outputHeight = 0;
+	int outputWidth = 512;
+	int outputHeight = 512;
 	glm::vec3 min;
 	glm::vec3 max;
 	float elapsedTime;
@@ -81,5 +80,9 @@ private:
 
 	int uiId = 0;
 	bool firstTime = true;
+
+	bool animated = true;
+
+	int selectedAnimation = 0;
 };
 

@@ -39,27 +39,14 @@ void ProgramManager::Update()
 
         if (window.width == 0 || window.height == 0) continue;
 
-        HandleCameraController(&scene.camera, &input, &lastInput, window.glfwWindow, dt, 50000.0f, 2.0f);
-        
-
-        // draw frame buffer to screen
-        
-        //DrawFrameBuffer(
-        //    &resource.shaders.output,
-        //    &resource.meshes.quad,
-        //    &resource.frameBuffers.output,
-        //    0, 0,
-        //    1.0f, 1.0f
-        //);
-
         BeginRenderGUI();
         // begin imgui window
         RenderSceneWindow();
         RenderSpriteWindow();
-        RenderSceneHierarchy();
+        //RenderSceneHierarchy();
         RenderSidePannel();
-        RenderResourcePannel();
-        RenderModelDetailPannel();
+        //RenderResourcePannel();
+        //RenderModelDetailPannel();
         EndRenderGUI();
         //Swapping the buffers – this means this frame is over.
 
@@ -154,21 +141,7 @@ void ProgramManager::CaptureAnimationFrames(int numFrames)
         }
         frameTime += timeIncrement;
     }
-    AddSpriteAnimation(&resource.spriteAnimations, spriteTextures, outputWidth, outputHeight, resource.animations[VAMPIRE_ANIMATION].duration);
-}
-
-void ProgramManager::CaptureStaticFrame()
-{
-    glViewport(0, 0, outputWidth, outputHeight);
-    InitFrameBuffer(&resource.frameBuffers[MSAA_FRAMEBUFFER], outputWidth, outputHeight, msaa);
-    InitFrameBuffer(&resource.frameBuffers[OUTPUT_FRAMEBUFFER], outputWidth, outputHeight);
-    scene.camera.aspect = (float)outputWidth / (float)outputHeight;
-    window.shouldUpdate = true;
-
-    glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[selectedModel], scene.models.rotations[selectedModel], scene.models.scales[selectedModel]);
-    std::pair<glm::vec3, glm::vec3> volume = GetBoundingVolume(scene.models.meshes[selectedModel], modelMatrix);
-    SnapCameraToBoundingVolume(volume);
-
+    AddSpriteAnimation(&resource.spriteAnimations, spriteTextures, outputWidth, outputHeight, resource.animations[selectedAnimation].duration);
 }
 
 void ProgramManager::RenderBoundingVolume()
@@ -282,35 +255,90 @@ void ProgramManager::RenderSpriteWindow()
 
 void ProgramManager::RenderSidePannel()
 {
-    ImGui::Begin("Imgui window");
+    ImGui::Begin("Settings");
 
-    ImGui::DragFloat3("Camera Position", &scene.camera.position[0], 0.1f);
-    float phi = glm::degrees(scene.camera.phi);
-    ImGui::DragFloat("Camera Phi", &phi, 0.1f);
-    scene.camera.phi = glm::radians(phi);
+    std::vector<std::string> animationNames = MapArray<Animation, std::string>(resource.animations, [](Animation animation) {
+        return animation.name;
+        });
+    selectedAnimation = 0;
+    int currentAnimation = 0;
+    for (int i = 0; i < resource.animations.size(); i++)
+    {
+        if (&resource.animations[i] == scene.models.animations[selectedModel])
+        {
+            selectedAnimation = i;
+            currentAnimation = i;
+            break;
+        }
+    }
 
-    float theta = glm::degrees(scene.camera.theta);
-    ImGui::DragFloat("Camera Theta", &theta, 0.1f);
-    scene.camera.theta = glm::radians(theta);
+    if (resource.animations.size() > selectedAnimation)
+    {
+        ImGui::Combo("Animations", &selectedAnimation, VectorOfStringGetter, static_cast<void*>(&animationNames), resource.animations.size());
+    }
 
-    ImGui::DragFloat("Camera Near Plane", &scene.camera.near, 0.1f);
-    ImGui::DragFloat("Camera Far Plane", &scene.camera.far, 1.0f);
+    if (selectedAnimation == 0)
+    {
+        scene.models.animations[selectedModel] = nullptr;
+    }
+    else
+    {
+        scene.models.animations[selectedModel] = &resource.animations[selectedAnimation];
+    }
+
+    if (currentAnimation != selectedAnimation || firstTime)
+    {
+        firstTime = false;
+        glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[selectedModel], scene.models.rotations[selectedModel], scene.models.scales[selectedModel]);
+        if (scene.models.animations[selectedModel])
+        {
+            std::pair<glm::vec3, glm::vec3> volume = GetAnimationBoundingVolume(scene.models.meshes[selectedModel], scene.models.animations[selectedModel], modelMatrix, frames);
+            SnapCameraToBoundingVolume(volume);
+        }
+        else {
+            std::pair<glm::vec3, glm::vec3> volume = GetBoundingVolume(scene.models.meshes[selectedModel], modelMatrix);
+            SnapCameraToBoundingVolume(volume);
+        }
+    }
+
+
+    std::vector<std::string> materialNames = MapArray<Material, std::string>(resource.materials, [](Material material)
+        {
+            return material.name;
+        });
+
+    int selectedMaterial = 0;
+    for (int i = 0; i < resource.materials.size(); i++)
+    {
+        if (&resource.materials[i] == scene.models.materials[selectedModel])
+        {
+            selectedMaterial = i;
+            break;
+        }
+    }
+
+    if (resource.materials.size() > selectedMaterial)
+    {
+        ImGui::Combo("Materials", &selectedMaterial, VectorOfStringGetter, static_cast<void*>(&materialNames), resource.materials.size());
+    }
+
+    scene.models.materials[selectedModel] = &resource.materials[selectedMaterial];
 
     ImGui::Spacing();
+    if (resource.materials[selectedMaterial].type == 1)
+    {
+        ImGui::ColorPicker3("Color", &resource.materials[selectedMaterial].color.color.x);
+    }
+
+ 
     glm::vec3 rot = glm::degrees(scene.models.rotations[selectedModel]);
     ImGui::DragFloat3("Rotation", &rot[0], 0.1f);
     scene.models.rotations[0] = glm::radians(rot);
 
-   
-    ImGui::InputFloat3("bounding min", &min.x);
-    ImGui::InputFloat3("bounding max", &max.x);
-    glm::vec3 diff = max - min;
-    ImGui::InputFloat3("diff", &diff.x);
-    //ImGui::DragFloat3()
-
     ImGui::InputInt("Width", &outputWidth);
     ImGui::InputInt("Height", &outputHeight);
     ImGui::InputInt("Frames", &frames);
+
     if (ImGui::Button("Generate bounding volume") && (frames > 0 || !scene.models.animations[selectedModel]))
     {
         glm::mat4 modelMatrix = GetModelMatrix(scene.models.positions[selectedModel], scene.models.rotations[selectedModel], scene.models.scales[selectedModel]);
@@ -420,17 +448,14 @@ void ProgramManager::RenderResourcePannel()
             }
             if (ImGui::Button("Add") && meshName.size() != 0)
             {
-                std::vector<MeshData> meshDatas;
+                MeshData meshData = {};
 
                 //MeshData meshData = {};
-                if (LoadMeshData(meshPathName, meshDatas))
+                if (LoadMeshData(meshPathName, &meshData))
                 {
-                    for (int j = 0; j < meshDatas.size(); j++)
-                    { 
-                        Mesh mesh = {};
-                        InitMesh(meshName, &mesh, &meshDatas[j]);
-                        resource.meshes.push_back(mesh);
-                    }
+                    Mesh mesh = {};
+                    InitMesh(meshName, &mesh, &meshData);
+                    resource.meshes.push_back(mesh);
                 }
 
                 loadingMesh = false;
@@ -570,7 +595,7 @@ void ProgramManager::RenderModelDetailPannel()
 
     //animationNames.insert(animationNames.begin(), "(None)");
 
-    int selectedAnimation = 0;
+    selectedAnimation = 0;
     int currentAnimation = 0;
     for (int i = 0; i < resource.animations.size(); i++)
     {

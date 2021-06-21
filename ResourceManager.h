@@ -8,21 +8,29 @@
 #define UNSHADED_SHADER 5
 #define TEXTURE_SHADER 6
 #define SPRITE_SHADER 7
+#define PHONG_VERT_SHADER 8
+#define VERT_NORMAL_SHADER 9
 
-#define VAMPIRE_MESH 0
+//#define VAMPIRE_MESH 0
+#define CYBER_MESH 0
 #define SPHERE_MESH 1
 #define QUAD_MESH 2
 
 #define NONE 0
-#define VAMPIRE_ANIMATION 1
+#define CYBER_RUNNING_ANIMATION 1
+#define CYBER_IDLE_ANIMATION 2
 
-#define VAMPIRE_PHONG_MATERIAL 0
+//#define VAMPIRE_PHONG_MATERIAL 0
+#define CYBER_PHONG_MATERIAL 1
+#define VERTEX_NORMAL_MATERIAL 2
 
-#define VAMPIRE_DIFFUSE 0
-#define VAMPIRE_NORMAL 1
-#define VAMPIRE_SPECULAR 2
-#define VAMPIRE_EMISSION 3
-#define WHITE 4
+//#define VAMPIRE_DIFFUSE 0
+//#define VAMPIRE_NORMAL 1
+//#define VAMPIRE_SPECULAR 2
+//#define VAMPIRE_EMISSION 3
+#define CYBER_DIFFUSE 0
+#define WHITE 1
+#define BLACK 2
 
 #define MSAA_FRAMEBUFFER 0
 #define OUTPUT_FRAMEBUFFER 1
@@ -141,6 +149,20 @@ static void InitResources(Resource* resource, Window* window)
 		resource->shaders.push_back(spriteShader);
 	}
 
+	{
+		ShaderProgram phongVert = {};
+		InitShaderProgram(&phongVert, "PhongVert.vert", "PhongVert.frag");
+		SetUniform(&resource->shaders[PHONG_VERT_SHADER], "u_diffuseTexture", 0);
+		SetUniform(&resource->shaders[PHONG_VERT_SHADER], "u_emissionTexture", 1);
+		resource->shaders.push_back(phongVert);
+	}
+
+	{
+		ShaderProgram vertNormal = {};
+		InitShaderProgram(&vertNormal, "PhongVert.vert", "VertexNormal.frag");
+		resource->shaders.push_back(vertNormal);
+	}
+
 	// msaa
 	{
 		FrameBuffer msaa = {};
@@ -182,51 +204,110 @@ static void InitResources(Resource* resource, Window* window)
 		resource->animations.push_back(placeHolder);
 	}
 
-	{
-		// init vampire
-		Assimp::Importer importer;
-		const aiScene* scene = importer.ReadFile("vampire/dancing_vampire.dae", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+	//{
+	//	// init vampire
+	//	Assimp::Importer importer;
+	//	const aiScene* scene = importer.ReadFile("vampire/dancing_vampire.dae", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
-		Mesh vampireMesh = {};
+	//	Mesh vampireMesh = {};
+	//	//Bone vampireSkeleton = {};
+	//	//int boneCount = 0;
+	//	MeshData vampireMeshData = LoadMeshData(scene, 0);
+	//	//LoadBoneData(scene, &vampireMeshData, vampireSkeleton, boneCount);
+	//	//MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
+	//	
+	//	std::vector<Animation> animations = LoadAnimations(scene, &vampireMeshData);
+	//	//resource->skeletons.vampireSkeleton = vampireSkeleton;
+	//	for (int i = 0; i < animations.size(); i++)
+	//	{
+	//		resource->animations.push_back(animations[i]);
+	//		resource->animations[resource->animations.size() - 1].currentPose.resize(resource->animations[resource->animations.size() - 1].boneCount, glm::mat4(1.0f));
+	//	}
+	//	//resource->animations.vampireAnimation = animations[0];
+	//	InitMesh("Vampire", &vampireMesh, &vampireMeshData);
+	//	resource->meshes.push_back(vampireMesh);
+	//	
+	//	//resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
+
+	//	Texture vampireDiffuseTexture = {};
+	//	LoadTexture(&vampireDiffuseTexture, "Vampire Diffuse", "vampire\\textures\\Vampire_diffuse.png");
+	//	resource->textures.push_back(vampireDiffuseTexture);
+	//	//resource->textures.vampireDiffuse = vampireDiffuseTexture;
+
+	//	Texture vampireNormalTexture = {};
+	//	LoadTexture(&vampireNormalTexture, "Vampire Normal", "vampire\\textures\\Vampire_normal.png");
+	//	resource->textures.push_back(vampireNormalTexture);
+	//	//resource->textures.vampireNormal = vampireNormalTexture;
+
+	//	Texture vampireSpecularTexture = {};
+	//	LoadTexture(&vampireSpecularTexture, "Vampire Specular", "vampire\\textures\\Vampire_specular.png");
+	//	resource->textures.push_back(vampireSpecularTexture);
+	//	//resource->textures.vampireSpecular = vampireSpecularTexture;
+
+	//	Texture vampireEmissionTexture = {};
+	//	LoadTexture(&vampireEmissionTexture, "Vampire Emission", "vampire\\textures\\Vampire_emission.png");
+	//	resource->textures.push_back(vampireEmissionTexture);
+	//	//resource->textures.vampireEmission = vampireEmissionTexture;
+	//}
+
+	{
+		// init cyber
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile("cyber/Running.dae", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+
+		Mesh cyberMesh = {};
 		//Bone vampireSkeleton = {};
 		//int boneCount = 0;
-		MeshData vampireMeshData = LoadMeshData(scene, 0);
+		MeshData cyberMeshData = LoadMeshData(scene, 0);
 		//LoadBoneData(scene, &vampireMeshData, vampireSkeleton, boneCount);
 		//MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
-		
-		std::vector<Animation> animations = LoadAnimations(scene, &vampireMeshData);
+
+		int k = 0;
+		std::vector<Animation> animations = LoadAnimations(scene, &cyberMeshData);
 		//resource->skeletons.vampireSkeleton = vampireSkeleton;
 		for (int i = 0; i < animations.size(); i++)
 		{
+			animations[i].name = "running";
 			resource->animations.push_back(animations[i]);
 			resource->animations[resource->animations.size() - 1].currentPose.resize(resource->animations[resource->animations.size() - 1].boneCount, glm::mat4(1.0f));
 		}
 		//resource->animations.vampireAnimation = animations[0];
-		InitMesh("Vampire", &vampireMesh, &vampireMeshData);
-		resource->meshes.push_back(vampireMesh);
-		
+		InitMesh("Cyber", &cyberMesh, &cyberMeshData);
+		resource->meshes.push_back(cyberMesh);
+
 		//resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
 
-		Texture vampireDiffuseTexture = {};
-		LoadTexture(&vampireDiffuseTexture, "Vampire Diffuse", "vampire\\textures\\Vampire_diffuse.png");
-		resource->textures.push_back(vampireDiffuseTexture);
-		//resource->textures.vampireDiffuse = vampireDiffuseTexture;
+		Texture cyberDiffuseTexture = {};
+		LoadTexture(&cyberDiffuseTexture, "Cyber Diffuse", "cyber\\textures\\PolygonWestern_Texture_01.png");
+		resource->textures.push_back(cyberDiffuseTexture);
+	}
 
-		Texture vampireNormalTexture = {};
-		LoadTexture(&vampireNormalTexture, "Vampire Normal", "vampire\\textures\\Vampire_normal.png");
-		resource->textures.push_back(vampireNormalTexture);
-		//resource->textures.vampireNormal = vampireNormalTexture;
+	{
+		// init cyber
+		Assimp::Importer importer;
+		const aiScene* scene = importer.ReadFile("cyber/Neutral Idle.dae", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 
-		Texture vampireSpecularTexture = {};
-		LoadTexture(&vampireSpecularTexture, "Vampire Specular", "vampire\\textures\\Vampire_specular.png");
-		resource->textures.push_back(vampireSpecularTexture);
-		//resource->textures.vampireSpecular = vampireSpecularTexture;
+		Mesh cyberMesh = {};
+		//Bone vampireSkeleton = {};
+		//int boneCount = 0;
+		MeshData cyberMeshData = LoadMeshData(scene, 0);
+		//LoadBoneData(scene, &vampireMeshData, vampireSkeleton, boneCount);
+		//MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
 
-		Texture vampireEmissionTexture = {};
-		LoadTexture(&vampireEmissionTexture, "Vampire Emission", "vampire\\textures\\Vampire_emission.png");
-		resource->textures.push_back(vampireEmissionTexture);
-		//resource->textures.vampireEmission = vampireEmissionTexture;
+		int k = 0;
+		std::vector<Animation> animations = LoadAnimations(scene, &cyberMeshData);
+		//resource->skeletons.vampireSkeleton = vampireSkeleton;
+		for (int i = 0; i < animations.size(); i++)
+		{
+			animations[i].name = "idle";
+			resource->animations.push_back(animations[i]);
+			resource->animations[resource->animations.size() - 1].currentPose.resize(resource->animations[resource->animations.size() - 1].boneCount, glm::mat4(1.0f));
+		}
+		//resource->animations.vampireAnimation = animations[0];
+		//InitMesh("Cyber", &cyberMesh, &cyberMeshData);
+		//resource->meshes.push_back(cyberMesh);
 
+		//resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
 	}
 
 	{
@@ -241,24 +322,26 @@ static void InitResources(Resource* resource, Window* window)
 		resource->textures.push_back(blackTexture);
 	}
 
-	{
-		Material material = {};
-		material.shaderProgram = &resource->shaders[PHONG_SHADER];
-		material.type = 0;
-		material.name = "Phong";
-		material.phong.diffuseTexture = &resource->textures[VAMPIRE_DIFFUSE];
-		material.phong.normalTexture = &resource->textures[VAMPIRE_NORMAL];
-		material.phong.specularTexture = &resource->textures[VAMPIRE_SPECULAR];
-		material.phong.emissionTexture = &resource->textures[VAMPIRE_EMISSION];
 
-		material.phong.ka = { 1.0f, 1.0f, 1.0f };
-		material.phong.kd = { 1.0f, 1.0f, 1.0f };
-		material.phong.ks = { 1.0f, 1.0f, 1.0f };
-		material.phong.ke = { 1.0f, 1.0f, 1.0f };
-		material.phong.specularPower = 8.0f;
 
-		resource->materials.push_back(material);
-	}
+	//{
+	//	Material material = {};
+	//	material.shaderProgram = &resource->shaders[PHONG_SHADER];
+	//	material.type = 0;
+	//	material.name = "Phong";
+	//	material.phong.diffuseTexture = &resource->textures[VAMPIRE_DIFFUSE];
+	//	material.phong.normalTexture = &resource->textures[VAMPIRE_NORMAL];
+	//	material.phong.specularTexture = &resource->textures[VAMPIRE_SPECULAR];
+	//	material.phong.emissionTexture = &resource->textures[VAMPIRE_EMISSION];
+
+	//	material.phong.ka = { 1.0f, 1.0f, 1.0f };
+	//	material.phong.kd = { 1.0f, 1.0f, 1.0f };
+	//	material.phong.ks = { 1.0f, 1.0f, 1.0f };
+	//	material.phong.ke = { 1.0f, 1.0f, 1.0f };
+	//	material.phong.specularPower = 8.0f;
+
+	//	resource->materials.push_back(material);
+	//}
 
 	{
 		Material material = {};
@@ -270,16 +353,7 @@ static void InitResources(Resource* resource, Window* window)
 		resource->materials.push_back(material);
 	}
 
-	{
-		Material material = {};
-		material.shaderProgram = &resource->shaders[NORMAL_SHADER];
-		material.type = 2;
-		material.name = "Normal";
-		material.normal.texture = &resource->textures[VAMPIRE_NORMAL];
-
-		resource->materials.push_back(material);
-	}
-
+	/*
 	{
 		Material material = {};
 		material.shaderProgram = &resource->shaders[TEXTURE_SHADER];
@@ -304,6 +378,33 @@ static void InitResources(Resource* resource, Window* window)
 		material.type = 5;
 		material.name = "Emission";
 		material.diffuse.texture = &resource->textures[VAMPIRE_EMISSION];
+		resource->materials.push_back(material);
+	}*/
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[PHONG_VERT_SHADER];
+		material.type = 6;
+		material.name = "Diffuse";
+		material.phongVertexNormal.diffuseTexture = &resource->textures[CYBER_DIFFUSE];
+		material.phongVertexNormal.emissionTexture = &resource->textures[BLACK];
+
+		material.phongVertexNormal.ka = { 1.0f, 1.0f, 1.0f };
+		material.phongVertexNormal.kd = { 1.0f, 1.0f, 1.0f };
+		material.phongVertexNormal.ks = { 1.0f, 1.0f, 1.0f };
+		material.phongVertexNormal.ke = { 0, 0, 0 };
+		material.phongVertexNormal.specularPower = 8.0f;
+		material.phongVertexNormal.specularColor = { 1.0f, 1.0f, 1.0f };
+
+		resource->materials.push_back(material);
+	}
+
+	{
+		Material material = {};
+		material.shaderProgram = &resource->shaders[VERT_NORMAL_SHADER];
+		material.type = 7;
+		material.name = "Vertex Normal";
+
 		resource->materials.push_back(material);
 	}
 
@@ -346,6 +447,39 @@ static void InitResources(Resource* resource, Window* window)
 		InitMesh("Quad", &quadMesh, &quadMeshData);
 		resource->meshes.push_back(quadMesh);
 	}
+
+
+	//{
+	//	// init vampire
+	//	Assimp::Importer importer;
+	//	const aiScene* scene = importer.ReadFile("cyber/Walking.dae", aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
+
+	//	Mesh badGuyMesh = {};
+	//	//Bone vampireSkeleton = {};
+	//	//int boneCount = 0;
+	//	MeshData badGuyMeshData = LoadMeshData(scene, 0);
+	//	//LoadBoneData(scene, &vampireMeshData, vampireSkeleton, boneCount);
+	//	//MeshData vampireMeshData = LoadMeshData(scene, vampireSkeleton, boneCount);
+
+	//	std::vector<Animation> animations = LoadAnimations(scene, &badGuyMeshData);
+	//	//resource->skeletons.vampireSkeleton = vampireSkeleton;
+	//	for (int i = 0; i < animations.size(); i++)
+	//	{
+	//		resource->animations.push_back(animations[i]);
+	//		resource->animations[resource->animations.size() - 1].currentPose.resize(resource->animations[resource->animations.size() - 1].boneCount, glm::mat4(1.0f));
+	//	}
+	//	//resource->animations.vampireAnimation = animations[0];
+	//	InitMesh("BadGuy", &badGuyMesh, &badGuyMeshData);
+	//	resource->meshes.push_back(badGuyMesh);
+
+	//	//resource->animations.vampireAnimation.currentPose.resize(boneCount, glm::mat4(1.0f));
+
+	//	Texture badGuyDiffuseTexture = {};
+	//	LoadTexture(&badGuyDiffuseTexture, "Vampire Diffuse", "cyber\\textures\\PolygonWestern_Texture_01.png");
+	//	resource->textures.push_back(badGuyDiffuseTexture);
+
+
+	//}
 	resource->spriteAnimations = {};
 }
 
@@ -407,15 +541,14 @@ static void DestroyResources(Resource* resource, Window* window)
 	glDeleteVertexArrays(1, &resource->lineRenderer.vertexBuffer);
 }
 
-static bool LoadMeshData(std::string filePath, std::vector<MeshData>& meshDatas)
+static bool LoadMeshData(std::string filePath, MeshData* meshData)
 {
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(filePath, aiProcess_Triangulate | aiProcess_JoinIdenticalVertices | aiProcess_FlipUVs | aiProcess_CalcTangentSpace);
 	if (!scene) return false;
-	for (int i = 0; i < scene->mNumMeshes; i++)
-	{
-		meshDatas.push_back(LoadMeshData(scene, i));
-	}
+
+	*meshData = LoadMeshData(scene, 0);
+
 	return true;
 }
 
